@@ -10,7 +10,7 @@ Most state managers treat persistence as an afterthought — you manage state fi
  
 ```ts
 // declare once — works everywhere
-const storage = createRouter({
+const storage = setupStorage({
   theme: defineState({ storage: localStorage, defaultValue: 'Dark' }),
   session: defineState({ storage: sessionStorage }),
   inMemory: defineState({ defaultValue: 0 }),
@@ -61,7 +61,7 @@ const [birthday, setBirthday] = storage.personal.birthday.useState()
 //     ^? Date | null
 ```
  
-If you rename or restructure a node in `createRouter`, TypeScript immediately flags every broken reference across the codebase.
+If you rename or restructure a node in `setupStorage`, TypeScript immediately flags every broken reference across the codebase.
  
 **Custom serialization per node.** Dates, Maps, class instances — define `serialize`/`deserialize` once and the hook handles the rest transparently.
  
@@ -72,7 +72,7 @@ defineState({
 })
 ```
  
-**Minimal API surface.** Three exports: `defineState`, `createRouter`, `StorageProvider`. No actions, reducers, selectors, or stores to configure.
+**Minimal API surface.** Three exports: `defineState`, `setupStorage`, `StorageProvider`. No actions, reducers, selectors, or stores to configure.
 
 ## Installation
 
