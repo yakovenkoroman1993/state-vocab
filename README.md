@@ -1,11 +1,83 @@
-# state-vocab
+# @yakocloud/state-vocab
 
 A lightweight React state management library that synchronizes component state with any `Storage`-compatible (localStorage, sessionStorage, custom).
+
+## Why use state-vocab?
+ 
+Most state managers treat persistence as an afterthought — you manage state first, then manually sync it to localStorage. **state-vocab flips this**: storage is defined upfront alongside the state itself, and synchronization is automatic.
+ 
+**Storage-first by design.** Every state node declares its backend at definition time — localStorage, sessionStorage, or any custom adapter. No `useEffect(() => localStorage.setItem(...), [value])` scattered across components.
+ 
+```ts
+// declare once — works everywhere
+const storage = createRouter({
+  theme: defineState({ storage: localStorage, defaultValue: 'Dark' }),
+  session: defineState({ storage: sessionStorage }),
+  inMemory: defineState({ defaultValue: 0 }),
+})
+```
+ 
+**Bring your own backend.** The `storage` option accepts any object implementing the [Web Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Storage). Point state directly at a server, IndexedDB wrapper, or encrypted store — no extra adapters needed.
+ 
+```ts
+defineState({
+  storage: {
+    getItem: (key) => api.get(key),
+    setItem: (key, value) => api.set(key, value),
+    removeItem: (key) => api.delete(key),
+    // ...
+  }
+})
+```
+ 
+**No prop drilling.** State lives in a shared `storage` object imported directly into any component. No need to pass values down through layers of props or lift state up to a common ancestor — any component in the tree can read and write the same node independently.
+ 
+```tsx
+// ❌ without state-vocab — thread props through every layer
+function Page({ theme, onThemeChange }) {
+  return <Sidebar theme={theme} onThemeChange={onThemeChange} />
+}
+function Sidebar({ theme, onThemeChange }) {
+  return <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
+}
+function ThemeToggle({ theme, onThemeChange }) {
+  return <button onClick={() => onThemeChange('Dark')}>{theme}</button>
+}
+ 
+// ✅ with state-vocab — import storage, use directly
+function ThemeToggle() {
+  const [theme, setTheme] = storage.preference.theme.useState()
+  return <button onClick={() => setTheme('Dark')}>{theme}</button>
+}
+```
+ 
+**Dot-notation access with full TypeScript inference.** The state tree is navigated like a plain object — autocomplete guides you to the right node, and types flow from `defineState<T>` all the way to the hook return value without any manual annotations.
+ 
+```ts
+const [theme, setTheme] = storage.preference.theme.useState()
+//     ^? 'Dark' | 'White' | 'System'
+ 
+const [birthday, setBirthday] = storage.personal.birthday.useState()
+//     ^? Date | null
+```
+ 
+If you rename or restructure a node in `createRouter`, TypeScript immediately flags every broken reference across the codebase.
+ 
+**Custom serialization per node.** Dates, Maps, class instances — define `serialize`/`deserialize` once and the hook handles the rest transparently.
+ 
+```ts
+defineState({
+  storage: localStorage,
+  deserialize: (raw) => new Date(JSON.parse(raw)),
+})
+```
+ 
+**Minimal API surface.** Three exports: `defineState`, `createRouter`, `StorageProvider`. No actions, reducers, selectors, or stores to configure.
 
 ## Installation
 
 ```bash
-npm install state-vocab
+npm install @yakocloud/state-vocab
 ```
 
 ## Quick Start
