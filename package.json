@@ -4,6 +4,7 @@
   "main": "dist/state-vocab.cjs.js",
   "module": "dist/state-vocab.es.js",
   "types": "dist/types/index.d.ts",
+  "license": "MIT",
   "files": [
     "dist"
   ],
