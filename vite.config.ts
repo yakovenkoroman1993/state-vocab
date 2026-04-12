@@ -8,9 +8,9 @@ export default defineConfig({
   build: {
     lib: {
       entry: path.resolve(__dirname, 'src/index.ts'),
-      name: 'React Storage',
+      name: 'State Vocab',
       formats: ['es', 'cjs'],
-      fileName: (format) => `react-storage.${format}.js`
+      fileName: (format) => `state-vocab.${format}.js`
     },
     rollupOptions: {
       external: ['react', 'react-dom'],

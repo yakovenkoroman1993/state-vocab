@@ -1,8 +1,8 @@
 {
-  "name": "@yakocloud/react-storage",
+  "name": "@yakocloud/state-vocab",
   "version": "1.0.1",
-  "main": "dist/react-storage.cjs.js",
-  "module": "dist/react-storage.es.js",
+  "main": "dist/state-vocab.cjs.js",
+  "module": "dist/state-vocab.es.js",
   "types": "dist/types/index.d.ts",
   "files": [
     "dist"
