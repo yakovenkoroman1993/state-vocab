@@ -75,7 +75,6 @@ export function defineState<T>(
           } 
 
           return value
-          // ctx.setStateVocab(embed(value))
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [statePath]
@@ -104,7 +103,7 @@ export function defineState<T>(
         
       useEffect(
         () => {
-          if (!storage || !storedValue) {
+          if (!storage || typeof storedValue === "undefined") {
             return
           }
 

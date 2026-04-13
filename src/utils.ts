@@ -92,3 +92,27 @@ export const isJsonValid = (input: string) => {
     return false
   }
 }
+
+export function logStyled(obj: object) {
+  const lines = JSON.stringify(obj, null, 2).split('\n')
+  const parts: string[] = []
+  const styles: string[] = []
+
+  for (const line of lines) {
+    const match = line.match(/^(\s*)"([^"]+)"(\s*:\s*)(.+)$/)
+    if (match) {
+      const [, indent, key, colon, value] = match
+      parts.push(`${indent}%c"${key}"%c${colon}%c${value}`)
+      styles.push(
+        'color: #9cdcfe; font-weight: bold',
+        'color: #cccccc',
+        'color: #ce9178',
+      )
+    } else {
+      parts.push(`%c${line}`)
+      styles.push('color: #cccccc')
+    }
+  }
+
+  console.log(parts.join('\n'), ...styles, obj)
+}

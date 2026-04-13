@@ -6,6 +6,7 @@ import {
   useContext,
   useState,
 } from "react";
+import { logStyled } from "./utils";
 
 export type Vocab<T = unknown> = Record<string, T | null>
 
@@ -23,9 +24,16 @@ export function useStateVocabContext<T>() {
   return useContext(StateVocabContext as React.Context<Context<Vocab<T>>>)
 }
 
-export const StateVocabContextProvider = ({ children }: PropsWithChildren) => {
+export const StateVocabContextProvider = (
+  props: PropsWithChildren<{ verbose?: boolean }>
+) => {
+  const { children, verbose } = props
+
   const [stateVocab, setStateVocab] = useState<Vocab>({})
-  console.log(stateVocab)
+
+  if (verbose) {
+    logStyled(stateVocab)
+  }
 
   return (
     <StateVocabContext.Provider value={{ stateVocab, setStateVocab }}>

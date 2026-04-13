@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, useId } from 'react'
 import { createRoot } from 'react-dom/client'
 import { StateVocabContextProvider } from './context'
 import { setupStorage } from './setup'
@@ -163,10 +163,14 @@ function Test() {
     label: string
   }[]>([])
 
+  const prefix = useId()
+
   return (
     <div>
+      <label htmlFor={`${prefix}-theme`}>Theme: </label>
       <select
-        value={theme ?? ""}
+        id={`${prefix}-theme`}
+        value={theme}
         onChange={(e) => setTheme(e.target.value as Theme)}
       >
         <option value="Dark" >Dark</option>
@@ -176,9 +180,9 @@ function Test() {
       
       <hr />
       
-      <label htmlFor="flag">flag: { nightMode ? "yes" : "no" }</label>
+      <label htmlFor={`${prefix}-night-mode`}>flag: </label>
       <input
-        id="flag"
+        id={`${prefix}-night-mode`}
         type="checkbox"
         checked={!!nightMode}
         onChange={(e) => setNightMode(e.target.checked)}
@@ -186,9 +190,9 @@ function Test() {
 
       <hr />
 
-      <label htmlFor="counter">counter: </label>
+      <label htmlFor={`${prefix}-counter`}>counter: </label>
       <input
-        id="counter"
+        id={`${prefix}-counter`}
         type="number"
         value={counter}
         onChange={(e) => setCounter(+e.target.value)}
@@ -204,27 +208,27 @@ function Test() {
 
       <hr />
 
-      <label htmlFor="note">Note:</label>
+      <label htmlFor={`${prefix}-note`}>Note:</label>
       <input
-        id="note"
+        id={`${prefix}-note`}
         type="text"
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
       <hr />
 
-      <label htmlFor="db">db:</label>
+      <label htmlFor={`${prefix}-db`}>db:</label>
       <textarea
-        id="db"
+        id={`${prefix}-db`}
         value={db}
         onChange={(e) => setDb(e.target.value)}
       />
 
       <hr />
 
-      <label htmlFor="draft-object">object:</label>
+      <label htmlFor={`${prefix}-draft-object`}>object:</label>
       <textarea
-        id="draft-object"
+        id={`${prefix}-draft-object`}
         value={objectDraft}
         onChange={(e) => {
           setObjectDraft(e.target.value)
@@ -245,20 +249,20 @@ function Test() {
       
       <hr />
 
-      <label htmlFor="birthday">Birthday:</label>
+      <label htmlFor={`${prefix}-birthday`}>Birthday:</label>
       <input
         type="date"
-        id="birthday"
+        id={`${prefix}-birthday`}
         value={toDateString(birthday)}
         onChange={(e) => setBirthday(new Date(e.target.value))}
       />
       
       <hr />
 
-      <label htmlFor="alarm">Alarm:</label>
+      <label htmlFor={`${prefix}-alarm`}>Alarm:</label>
       <input
         type="datetime-local"
-        id="alarm"
+        id={`${prefix}-alarm`}
         value={toLocalDatetimeString(alarm)}
         onChange={(e) => setAlarm(new Date(e.target.value))}
       />
@@ -268,7 +272,7 @@ function Test() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <StateVocabContextProvider>
+    <StateVocabContextProvider verbose>
       <Test />
       <br />
       <br />
