@@ -1,6 +1,6 @@
 {
   "name": "@yakocloud/state-vocab",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "main": "dist/state-vocab.cjs.js",
   "module": "dist/state-vocab.es.js",
   "types": "dist/types/index.d.ts",
@@ -18,10 +18,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build ; tsc --project tsconfig.types.json",
     "lint": "eslint .",
-    "type-check": "tsc --project tsconfig.types.json",
-    "build:types": "tsc --project tsconfig.types.json"
+    "type-check": "tsc --project tsconfig.types.json"
   },
   "peerDependencies": {
     "react": "^19.2.1",
