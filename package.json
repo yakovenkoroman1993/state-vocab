@@ -12,7 +12,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "type-check": "tsc --project tsconfig.types.json"
+    "type-check": "tsc --project tsconfig.types.json",
+    "build:types": "tsc --project tsconfig.types.json"
   },
   "peerDependencies": {
     "react": "^18.0.0",
