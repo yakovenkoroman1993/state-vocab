@@ -1,6 +1,6 @@
 {
   "name": "@yakocloud/state-vocab",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "main": "dist/state-vocab.cjs.js",
   "module": "dist/state-vocab.es.js",
   "types": "dist/types/index.d.ts",
@@ -8,6 +8,14 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yakovenkoroman1993/state-vocab"
+  },
+  "homepage": "https://github.com/yakovenkoroman1993/state-vocab#readme",
+  "bugs": {
+    "url": "https://github.com/yakovenkoroman1993/state-vocab/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -16,8 +24,8 @@
     "build:types": "tsc --project tsconfig.types.json"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
