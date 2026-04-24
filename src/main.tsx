@@ -29,6 +29,7 @@ const storage = setupStorage({
     note: defineState({ storage: localStorage }),
     birthday: defineState({
       storage: localStorage,
+      bidirectional: true,
       deserialize(raw) {
         try {
           const date = JSON.parse(raw)
@@ -93,8 +94,6 @@ const debouncedSetItem = debounce(async (key: string, value: string) => {
   const data = await fetchMock(value)
   db[key] = data
 }, 300)
-
-
 function Test() {
   // localStorage, literal string
   const [theme, setTheme] = storage.preference.theme.useState()
@@ -123,7 +122,8 @@ function Test() {
   // localStorage, string + debounced fetch
   const [note, setNote] = storage.personal.note.useState("", {
     delayedSet: 1000,
-    onSet: fetchMock
+    onSet: fetchMock,
+    bidirectional: true,
   })
 
   // customStorage, string
@@ -141,6 +141,7 @@ function Test() {
 
   // localStorage, Date
   const [birthday, setBirthday] = storage.personal.birthday.useState()
+  
   const toDateString = (date: Date | null) => {
     if (!date) {
       return

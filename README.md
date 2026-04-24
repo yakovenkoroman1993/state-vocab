@@ -275,6 +275,7 @@ function Dashboard() {
   const [counter, setCounter, resetCounter] = storage.stats.counter.useState(0)
   const [note, setNote] = storage.personal.note.useState('', {
     delayedSet: 500,
+    bidirectional: true,
     onSet: (v) => console.log('Saving note:', v),
   })
 
@@ -323,6 +324,7 @@ createRoot(document.getElementById('root')!).render(
 |---|---|---|
 | `storage` | `Storage \| undefined` | `undefined` (in-memory) |
 | `defaultValue` | `T \| undefined` | `undefined` |
+| `bidirectional` | `true \| undefined` | `undefined` |
 | `serialize` | `(v: T) => string` | `JSON.stringify` |
 | `deserialize` | `(v: string) => T` | `JSON.parse` |
 
@@ -341,5 +343,6 @@ React context provider. Must be an ancestor of any component using `.useState()`
 | `defaultValue` | `D \| (() => D) \| undefined` | Local default, overrides `defineState` default |
 | `options.delayedSet` | `number \| undefined` | Debounce delay for `onSet` in ms |
 | `options.onSet` | `(next: D, prev: D) => void \| undefined` | Callback after state change |
+| `options.bidirectional` | `true \| undefined` | bidirectional state update to sync tabs |
 
 Returns `[value, setValue, resetValue]`.
