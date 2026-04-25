@@ -1,4 +1,4 @@
-import { STATE_DEFINITION, STATE_PATH } from "./constants";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR_SUPPORT } from "./constants";
 
 const proxyCache = new WeakMap<object, Map<string, object>>()
 const leafCache = new WeakMap<object, Map<string, object>>()
@@ -9,9 +9,23 @@ const leafCache = new WeakMap<object, Map<string, object>>()
  *
  * @param router - Nested object representing a route/state hierarchy
  * @param path   - Accumulated dot-separated path from the root to the current node (e.g. "queue.email.send")
+ * @param ssr    - enable SSR support
  * @returns A Proxy over the router with paths automatically injected into leaf nodes
  */
-function injectPaths<T extends object>(router: T, path = ""): T {
+function injectPaths<T extends object>(
+  router: T,
+  options?: Partial<{
+    path: string
+    ssr: boolean
+  }>
+): T {
+  options ??= {}
+
+  const {
+    path = "",
+    ssr,
+  } = options
+
   let pathCache = proxyCache.get(router)
   
   if (!pathCache) {
@@ -58,7 +72,11 @@ function injectPaths<T extends object>(router: T, path = ""): T {
             method,
             (...args: unknown[]) =>
               leaf[method as keyof typeof leaf].call(
-                { ...leaf, [STATE_PATH]: statePath },
+                {
+                  ...leaf,
+                  [STATE_PATH]: statePath,
+                  [STATE_SSR_SUPPORT]: ssr,
+                },
                 ...args
               ),
           ])
@@ -74,7 +92,10 @@ function injectPaths<T extends object>(router: T, path = ""): T {
 
       // Intermediate node — recurse deeper, accumulating the path
       if (value && typeof value === "object") {
-        return injectPaths(value, statePath);
+        return injectPaths(value, {
+          path: statePath,
+          ssr,
+        });
       }
 
       // Primitive value — return as-is
@@ -87,6 +108,11 @@ function injectPaths<T extends object>(router: T, path = ""): T {
   return proxy
 }
 
-export function setupStorage<T extends object>(nativeRouter: T): T {
-  return injectPaths(nativeRouter);
+export function setupStorage<T extends object>(
+  native: T,
+  options?: Partial<{
+    ssr: boolean
+  }>
+): T {
+  return injectPaths(native, options);
 }

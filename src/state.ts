@@ -1,9 +1,11 @@
-import {  useEffect, useMemo, useRef } from "react";
-import { STATE_DEFINITION, STATE_PATH } from "./constants";
+import {  useEffect, useMemo, useRef, useState } from "react";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR_SUPPORT } from "./constants";
 import { get, useDebounce } from "./utils";
 import { useStateVocabContext } from "./context";
 import { embed, genDefaultValue, genStoredValue, isTransformer, valueOrFactory } from "./state.utils";
 import type { ValueOrFactory, ValueOrTransformer } from "./types";
+
+const isServer = typeof window === "undefined" // SSR
 
 export function defineState<T>(
   definitionOptions: {
@@ -21,17 +23,17 @@ export function defineState<T>(
   
   const superDefaultValue = definitionOptions.defaultValue
   const superBidirectional = definitionOptions.bidirectional
-  const storage = typeof window === "undefined" // SSR
-    ? undefined
-    : valueOrFactory(definitionOptions.storage)
+  const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
 
   return {
-    [STATE_DEFINITION]: true, // marks this object as a leaf in the router tree
-    [STATE_PATH]: "", // placeholder; injected at runtime by injectPaths()
+    [STATE_DEFINITION]: true,   // marks this object as a leaf in the router tree
+    [STATE_SSR_SUPPORT]: false, // placeholder; injected at runtime by injectPaths()
+    [STATE_PATH]: "",           // placeholder; injected at runtime by injectPaths()
 
     useState<D = T>(
       this: {
         [STATE_PATH]: string;
+        [STATE_SSR_SUPPORT]: boolean;
       },
       defaultValue?: ValueOrFactory<D>,
       options?: {
@@ -50,11 +52,20 @@ export function defineState<T>(
       const ctx = useStateVocabContext<D>()
 
       const statePath = this[STATE_PATH];
+      const ssr = this[STATE_SSR_SUPPORT];
+
+      const [mounted, setMounted] = useState(ssr ? false : true)
+
+      useEffect(() => setMounted(true), [])
 
       const storedValue = useMemo(
         () => {
+          if (!mounted) {
+            return undefined
+          }
+
           if (!storage) {
-            return
+            return undefined
           }
           
           const serialized = storage.getItem(statePath)
@@ -67,7 +78,7 @@ export function defineState<T>(
           })
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [statePath]
+        [statePath, mounted]
       );
       
       const value = useMemo(

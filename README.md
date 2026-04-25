@@ -149,9 +149,13 @@ const birthday = defineState({
 })
 ```
 
-### `setupStorage(tree)`
+### `setupStorage(tree, options)`
 
 Wraps a nested object of `defineState()` nodes and injects dot-separated paths into each leaf. The returned object mirrors your tree structure.
+
+| Parameter | Type | Description | Default
+|---|---|---|
+| `ssr` | `boolean \| undefined` | SSR support | false
 
 ```ts
 const storage = setupStorage({
