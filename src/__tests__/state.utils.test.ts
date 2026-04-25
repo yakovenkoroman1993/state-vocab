@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest'
-import { embed, genDefaultValue, genStoredValue } from '../state.utils'
+import { embed, genStoredValue, valueOrFactory } from '../state.utils'
 
 // ─── embed ────────────────────────────────────────────────────────────────────
 
@@ -54,41 +54,41 @@ describe('embed', () => {
 
 describe('genDefaultValue', () => {
   it('возвращает defaultValue если он передан', () => {
-    expect(genDefaultValue('local', 'super')).toBe('local')
+    expect(valueOrFactory('local') ?? 'super').toBe('local')
   })
 
   it('вызывает фабричную функцию', () => {
     const factory = () => 'from-factory'
-    expect(genDefaultValue(factory, 'super')).toBe('from-factory')
+    expect(valueOrFactory(factory) ?? 'super').toBe('from-factory')
   })
 
   it('fallback на superDefaultValue если defaultValue не передан', () => {
-    expect(genDefaultValue(undefined, 'super')).toBe('super')
+    expect(valueOrFactory(undefined) ?? 'super').toBe('super')
   })
 
   it('возвращает undefined если оба значения undefined', () => {
-    expect(genDefaultValue(undefined, undefined)).toBeUndefined()
+    expect(valueOrFactory(undefined) ?? undefined).toBeUndefined()
   })
 
   it('корректно работает с falsy значениями: 0', () => {
     // 0 ?? superDefault → 0 (не должен fallback-нуть на super)
     // НО: 0 ?? 'super' → 0 ✓
-    expect(genDefaultValue(0, 'super')).toBe(0)
+    expect(valueOrFactory(0) ?? 'super').toBe(0)
   })
 
   it('корректно работает с falsy значениями: false', () => {
-    expect(genDefaultValue(false, 'super')).toBe(false)
+    expect(valueOrFactory(false) ?? 'super').toBe(false)
   })
 
   it('корректно работает с пустой строкой', () => {
-    expect(genDefaultValue('', 'super')).toBe('')
+    expect(valueOrFactory('') ?? 'super').toBe('')
   })
 
   it('фабрика вызывается каждый раз (не кэшируется)', () => {
     let count = 0
     const factory = () => ++count
-    genDefaultValue(factory, null)
-    genDefaultValue(factory, null)
+    valueOrFactory(factory)
+    valueOrFactory(factory)
     expect(count).toBe(2)
   })
 })

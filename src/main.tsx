@@ -100,10 +100,13 @@ function Test() {
   const [theme, setTheme] = storage.preference.theme.useState()
   
   // sessionStorage, boolean
-  const [nightMode, setNightMode] = storage.preference.nightMode.useState(false)
+  const [nightMode, setNightMode] = storage.preference.nightMode.useState({
+    defaultValue: false
+  })
   
   // memoryStorage, number
-  const [counter, setCounter, resetCounter] = storage.stats.counter.useState(0, {
+  const [counter, setCounter, resetCounter] = storage.stats.counter.useState({
+    defaultValue: 0,
     onSet(nextValue, prevValue) {
       setList((prevList) => {
         if (nextValue <= 0) {
@@ -121,24 +124,28 @@ function Test() {
   })
 
   // localStorage, string + debounced fetch
-  const [note, setNote] = storage.personal.note.useState("", {
+  const [note, setNote] = storage.personal.note.useState({
+    defaultValue: "",
     delayedSet: 1000,
     onSet: fetchMock,
     bidirectional: true,
   })
 
   // customStorage, string
-  const [db, setDb] = storage.server.db.useState("")
+  const [db, setDb] = storage.server.db.useState({
+    defaultValue: "",
+  })
 
   // sessionStorage, object
-  const [json, setJson] = storage.json.object.useState<object>({}, {
+  const [json, setJson] = storage.json.object.useState<object>({
+    defaultValue: {},
     delayedSet: 1000,
     onSet: fetchMock
   })
 
-  const [objectDraft, setObjectDraft] = storage.json.objectDraft.useState(
-    () => JSON.stringify(json)
-  )
+  const [objectDraft, setObjectDraft] = storage.json.objectDraft.useState({
+    defaultValue: () => JSON.stringify(json)
+  })
 
   // localStorage, Date
   const [birthday, setBirthday] = storage.personal.birthday.useState()
@@ -153,7 +160,9 @@ function Test() {
 
   
   // localStorage, Date
-  const [alarm, setAlarm] = storage.personal.alarm.useState(() => new Date())
+  const [alarm, setAlarm] = storage.personal.alarm.useState({
+    defaultValue: () => new Date()
+  })
   const toLocalDatetimeString = (date: Date) => {
     const offset = date.getTimezoneOffset() * 60000
     return new Date(date.getTime() - offset).toISOString().slice(0, 16)
@@ -163,7 +172,9 @@ function Test() {
   const [list, setList] = storage.stats.list.useState<{ 
     id: number
     label: string
-  }[]>([])
+  }[]>({
+    defaultValue: []
+  })
 
   const prefix = useId()
 

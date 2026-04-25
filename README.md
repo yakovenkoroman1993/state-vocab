@@ -331,6 +331,7 @@ createRoot(document.getElementById('root')!).render(
 | `storage` | `Storage \| (() => Storage) \| undefined` | `undefined` (in-memory) |
 | `defaultValue` | `T \| undefined` | `undefined` |
 | `bidirectional` | `true \| undefined` | `undefined` |
+| `autoSet` | `true \| undefined` | `undefined` |
 | `serialize` | `(v: T) => string` | `JSON.stringify` |
 | `deserialize` | `(v: string) => T` | `JSON.parse` |
 
@@ -350,5 +351,6 @@ React context provider. Must be an ancestor of any component using `.useState()`
 | `options.delayedSet` | `number \| undefined` | Debounce delay for `onSet` in ms |
 | `options.onSet` | `(next: D, prev: D) => void \| undefined` | Callback after state change |
 | `options.bidirectional` | `true \| undefined` | bidirectional state update to sync tabs |
+| `options.autoSet` | `true \| undefined` | set the passed default value |
 
 Returns `[value, setValue, resetValue]`.

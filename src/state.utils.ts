@@ -9,13 +9,6 @@ export const embed = <D>(statePath: string, value: D) => (vocab: Vocab<D>) => {
   return nextVocab
 }
 
-export const genDefaultValue = <V>(
-  defaultValue: ValueOrFactory<V>,
-  superDefaltValue: unknown
-) => {
-  return valueOrFactory(defaultValue) ?? superDefaltValue as V
-}
-
 export const genStoredValue = <V>(
   options: {
     serialized: string | null,
@@ -27,7 +20,7 @@ export const genStoredValue = <V>(
   const { serialized, defaultValue, superDefaultValue, deserialize } = options
 
   if (serialized === null) {
-    const nextValue = genDefaultValue(defaultValue, superDefaultValue)
+    const nextValue = valueOrFactory(defaultValue) ?? superDefaultValue as V
       
     if (typeof nextValue === "undefined") {
       return undefined as V

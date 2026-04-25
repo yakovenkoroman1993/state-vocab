@@ -2,7 +2,7 @@ import {  useEffect, useMemo, useRef, useState } from "react";
 import { STATE_DEFINITION, STATE_PATH, STATE_SSR_SUPPORT } from "./constants";
 import { get, useDebounce } from "./utils";
 import { useStateVocabContext } from "./context";
-import { embed, genDefaultValue, genStoredValue, isTransformer, valueOrFactory } from "./state.utils";
+import { embed, genStoredValue, isTransformer, valueOrFactory } from "./state.utils";
 import type { ValueOrFactory, ValueOrTransformer } from "./types";
 
 const isServer = typeof window === "undefined" // SSR
@@ -12,6 +12,7 @@ export function defineState<T>(
     storage?: ValueOrFactory<Storage> // by default memory
     defaultValue?: T
     bidirectional?: true
+    autoSet?: true
     serialize?: (v: T) => string
     deserialize?: (v: string) => T
   } = {}
@@ -23,6 +24,7 @@ export function defineState<T>(
   
   const superDefaultValue = definitionOptions.defaultValue
   const superBidirectional = definitionOptions.bidirectional
+  const superAutoSet = definitionOptions.autoSet
   const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
 
   return {
@@ -35,10 +37,11 @@ export function defineState<T>(
         [STATE_PATH]: string;
         [STATE_SSR_SUPPORT]: boolean;
       },
-      defaultValue?: ValueOrFactory<D>,
       options?: {
+        defaultValue?: ValueOrFactory<D>,
         delayedSet?: number
         bidirectional?: true
+        autoSet?: true
         onSet?(nextValue: NoInfer<D>, prevValue: NoInfer<D>): void
       }
     ) {
@@ -71,8 +74,8 @@ export function defineState<T>(
           const serialized = storage.getItem(statePath)
 
           return genStoredValue({
+            defaultValue: options.defaultValue,
             serialized,
-            defaultValue,
             superDefaultValue,
             deserialize,
           })
@@ -85,7 +88,7 @@ export function defineState<T>(
         () => get(
           ctx.stateVocab,
           statePath,
-          storedValue ?? genDefaultValue(defaultValue, superDefaultValue)
+          storedValue ?? valueOrFactory(options.defaultValue) ?? superDefaultValue 
         ) as D,
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [
@@ -120,9 +123,9 @@ export function defineState<T>(
           const serialized = event.newValue
 
           const resolvedValue = genStoredValue({
-            serialized,
-            defaultValue,
+            defaultValue: options.defaultValue,
             superDefaultValue,
+            serialized,
             deserialize,
           })
           
@@ -145,38 +148,50 @@ export function defineState<T>(
 
       const prevValueRef = useRef(value)
 
+      const setValue = (nextValue: ValueOrTransformer<D>) => {
+        const resolvedValue = isTransformer(nextValue)
+          ? nextValue(prevValueRef.current)
+          : nextValue
+        
+        ctx.setStateVocab(embed(statePath, resolvedValue))
+        onSet(resolvedValue, prevValueRef.current)
+
+        if (storage) {
+          storage.setItem(statePath, serialize(resolvedValue))
+        }
+
+        prevValueRef.current = resolvedValue
+      }
+      
+      const resetValue = () => {
+        const resolvedValue = valueOrFactory(options.defaultValue)
+          ?? superDefaultValue as unknown as D
+        
+        if (typeof resolvedValue === "undefined") {
+          storage?.removeItem(statePath)
+          return
+        }
+
+        ctx.setStateVocab(embed<D>(statePath, resolvedValue))
+        onSet(resolvedValue, prevValueRef.current)
+        prevValueRef.current = resolvedValue
+
+        if (storage) {
+          storage.setItem(statePath, serialize(resolvedValue))
+        }
+      }
+
+      useEffect(() => {
+        if (options.autoSet || superAutoSet) {
+          setValue(value)
+        }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [])
+      
       return [
         value,
-        function setState(nextValue: ValueOrTransformer<D>) {
-          const resolvedValue = isTransformer(nextValue)
-            ? nextValue(prevValueRef.current)
-            : nextValue
-          
-          ctx.setStateVocab(embed(statePath, resolvedValue))
-          onSet(resolvedValue, prevValueRef.current)
-
-          if (storage) {
-            storage.setItem(statePath, serialize(resolvedValue))
-          }
-
-          prevValueRef.current = resolvedValue
-        },
-        function resetState() {
-          const resolvedValue = genDefaultValue(defaultValue, superDefaultValue)
-          
-          if (typeof resolvedValue === "undefined") {
-            storage?.removeItem(statePath)
-            return
-          }
-
-          ctx.setStateVocab(embed<D>(statePath, resolvedValue))
-          onSet(resolvedValue, prevValueRef.current)
-          prevValueRef.current = resolvedValue
-
-          if (storage) {
-            storage.setItem(statePath, serialize(resolvedValue))
-          }
-        },
+        setValue,
+        resetValue,
       ] as const
     },
     

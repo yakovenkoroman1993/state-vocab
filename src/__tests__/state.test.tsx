@@ -16,10 +16,10 @@ function renderState<T>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   stateNode: { useState: (...args: any[]) => readonly [T, (v: T | ((p: T) => T)) => void, () => void] },
   defaultValue?: T,
-  options?: Parameters<typeof stateNode.useState>[1]
+  options?: Parameters<typeof stateNode.useState>[0]
 ) {
   return renderHook(
-    () => stateNode.useState(defaultValue, options),
+    () => stateNode.useState({...options, defaultValue}),
     { wrapper: makeWrapper() }
   )
 }
@@ -345,8 +345,12 @@ describe('defineState — синхронизация через контекст
     // Оба хука должны жить в одном React-дереве, иначе контексты разные
     const { result } = renderHook(
       () => ({
-        a: storage.shared.useState(0),
-        b: storage.shared.useState(0),
+        a: storage.shared.useState({
+          defaultValue: 0
+        }),
+        b: storage.shared.useState({
+          defaultValue: 0
+        }),
       }),
       { wrapper: makeWrapper() }
     )
@@ -374,7 +378,7 @@ describe('defineState — известные проблемы', () => {
 
     const { result, rerender } = renderHook(
       ({ cb }: { cb: (n: number, p: number) => void }) =>
-        storage.v.useState(0, { onSet: cb }),
+        storage.v.useState({ defaultValue: 0, onSet: cb }),
       { wrapper: makeWrapper(), initialProps: { cb: first } }
     )
 
