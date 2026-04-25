@@ -1,6 +1,6 @@
 {
   "name": "@yakocloud/state-vocab",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "main": "dist/state-vocab.cjs.js",
   "module": "dist/state-vocab.es.js",
   "types": "dist/types/index.d.ts",
@@ -22,7 +22,8 @@
     "lint": "eslint .",
     "type-check": "tsc --project tsconfig.types.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:report": "npx vitest run --reporter=verbose"
   },
   "peerDependencies": {
     "react": "^19.2.1",
