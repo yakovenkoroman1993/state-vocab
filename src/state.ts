@@ -2,11 +2,12 @@ import {  useEffect, useMemo, useRef } from "react";
 import { STATE_DEFINITION, STATE_PATH } from "./constants";
 import { get, useDebounce } from "./utils";
 import { useStateVocabContext } from "./context";
-import { embed, genDefaultValue, genStoredValue } from "./state.utils";
+import { embed, genDefaultValue, genStoredValue, isTransformer, valueOrFactory } from "./state.utils";
+import type { ValueOrFactory, ValueOrTransformer } from "./types";
 
 export function defineState<T>(
   definitionOptions: {
-    storage?: Storage // by default memory
+    storage?: ValueOrFactory<Storage> // by default memory
     defaultValue?: T
     bidirectional?: true
     serialize?: (v: T) => string
@@ -14,13 +15,13 @@ export function defineState<T>(
   } = {}
 ) {
   const {
-    storage,
     serialize = JSON.stringify,
     deserialize = JSON.parse,
   } = definitionOptions
   
   const superDefaultValue = definitionOptions.defaultValue
   const superBidirectional = definitionOptions.bidirectional
+  const storage = valueOrFactory(definitionOptions.storage)
 
   return {
     [STATE_DEFINITION]: true, // marks this object as a leaf in the router tree
@@ -30,7 +31,7 @@ export function defineState<T>(
       this: {
         [STATE_PATH]: string;
       },
-      defaultValue?: D | (() => D),
+      defaultValue?: ValueOrFactory<D>,
       options?: {
         delayedSet?: number
         bidirectional?: true
@@ -134,9 +135,9 @@ export function defineState<T>(
 
       return [
         value,
-        function setState(nextValue: D | ((prev: D) => D)) {
-          const resolvedValue = typeof nextValue === "function"
-            ? (nextValue as (prev: D) => D)(prevValueRef.current)
+        function setState(nextValue: ValueOrTransformer<D>) {
+          const resolvedValue = isTransformer(nextValue)
+            ? nextValue(prevValueRef.current)
             : nextValue
           
           ctx.setStateVocab(embed(statePath, resolvedValue))

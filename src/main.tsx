@@ -22,7 +22,7 @@ function fetchMock(value: unknown) {
 
 const storage = setupStorage({
   preference: {
-    theme: defineState<Theme>({ storage: localStorage, defaultValue: "Dark" }),
+    theme: defineState<Theme>({ storage: () => localStorage, defaultValue: "Dark" }),
     nightMode: defineState({ storage: sessionStorage }),
   },
   personal: {
@@ -94,6 +94,7 @@ const debouncedSetItem = debounce(async (key: string, value: string) => {
   const data = await fetchMock(value)
   db[key] = data
 }, 300)
+
 function Test() {
   // localStorage, literal string
   const [theme, setTheme] = storage.preference.theme.useState()
@@ -141,7 +142,7 @@ function Test() {
 
   // localStorage, Date
   const [birthday, setBirthday] = storage.personal.birthday.useState()
-  
+
   const toDateString = (date: Date | null) => {
     if (!date) {
       return

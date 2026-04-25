@@ -12,7 +12,7 @@ Most state managers treat persistence as an afterthought — you manage state fi
 // declare once — works everywhere
 const storage = setupStorage({
   theme: defineState({ storage: localStorage, defaultValue: 'Dark' }),
-  session: defineState({ storage: sessionStorage }),
+  session: defineState({ storage: () => sessionStorage }),
   inMemory: defineState({ defaultValue: 0 }),
 })
 ```
@@ -77,8 +77,10 @@ defineState({
 ## Installation
 
 ```bash
-npm install @yakocloud/state-vocab
+npm install @yakocloud/state-vocab react react-dom
 ```
+
+> `react` and `react-dom` are peer dependencies and must be installed separately.
 
 ## Quick Start
 
@@ -125,7 +127,7 @@ Defines a state node. Options:
 
 | Option | Type | Description |
 |---|---|---|
-| `storage` | `Storage` | Where to persist the value. Omit for in-memory only. |
+| `storage` | `Storage \| (() => Storage) \| undefined` | Where to persist the value. Omit for in-memory only. |
 | `defaultValue` | `T` | Value used when storage has no entry. |
 | `serialize` | `(v: T) => string` | Custom serializer. Default: `JSON.stringify`. |
 | `deserialize` | `(v: string) => T` | Custom deserializer. Default: `JSON.parse`. |
@@ -136,13 +138,13 @@ const counter = defineState({ defaultValue: 0 })
 
 // localStorage with custom type
 const theme = defineState<'Dark' | 'White'>({
-  storage: localStorage,
+  storage: () => localStorage,
   defaultValue: 'Dark',
 })
 
 // localStorage with custom serialization
 const birthday = defineState({
-  storage: localStorage,
+  storage: () => localStorage,
   deserialize: (raw) => new Date(JSON.parse(raw)),
 })
 ```
@@ -322,7 +324,7 @@ createRoot(document.getElementById('root')!).render(
 
 | Option | Type | Default |
 |---|---|---|
-| `storage` | `Storage \| undefined` | `undefined` (in-memory) |
+| `storage` | `Storage \| (() => Storage) \| undefined` | `undefined` (in-memory) |
 | `defaultValue` | `T \| undefined` | `undefined` |
 | `bidirectional` | `true \| undefined` | `undefined` |
 | `serialize` | `(v: T) => string` | `JSON.stringify` |
