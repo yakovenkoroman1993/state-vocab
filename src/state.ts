@@ -21,6 +21,9 @@ export function defineState<T>(
   
   const superDefaultValue = definitionOptions.defaultValue
   const superBidirectional = definitionOptions.bidirectional
+  const storage = typeof window === "undefined" // SSR
+    ? undefined
+    : valueOrFactory(definitionOptions.storage)
 
   return {
     [STATE_DEFINITION]: true, // marks this object as a leaf in the router tree
@@ -44,9 +47,6 @@ export function defineState<T>(
         options.delayedSet,
         []
       )
-
-      const storage = useMemo(() => valueOrFactory(definitionOptions.storage), [])
-      
       const ctx = useStateVocabContext<D>()
 
       const statePath = this[STATE_PATH];
