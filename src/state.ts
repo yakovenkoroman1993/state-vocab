@@ -16,9 +16,6 @@ export function defineState<T>(
     deserialize?: Deserialize<T>
   } = {}
 ) {
-  const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
-  const superBidirectional = definitionOptions.bidirectional
-  
   return {
     [STATE_DEFINITION]: true,   // marks this object as a leaf in the router tree
     [STATE_SSR]: false, // placeholder; injected at runtime by injectPaths()
@@ -36,10 +33,13 @@ export function defineState<T>(
         onSet?(nextValue: NoInfer<D>, prevValue: NoInfer<D>): void
       }
     ) {
+      const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
+
       const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
       const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
 
       const superDefaultValue = definitionOptions.defaultValue as unknown as D | undefined // Conscious unsafe cast
+      const superBidirectional = definitionOptions.bidirectional
       
       options ??= {}
 
@@ -102,7 +102,7 @@ export function defineState<T>(
           }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [value]
+        []
       );
 
       useEffect(() => {
