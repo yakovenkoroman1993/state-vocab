@@ -91,6 +91,15 @@ const storage = setupStorage({
       }
     })
   },
+  demo: {
+    pageProps: defineState<{
+      a: number;
+      b: number;
+      c: string[];
+    }>({
+      storage: localStorage
+    }),
+  }
 })
 
 const debouncedSetItem = debounce(async (key: string, value: string) => {
@@ -99,6 +108,14 @@ const debouncedSetItem = debounce(async (key: string, value: string) => {
 }, 300)
 
 function Test() {
+  storage.demo.pageProps.useState({
+    defaultValue: {
+      a: 1,
+      b: 2,
+      c: ["1", "2"]
+    },
+  });
+
   // localStorage, literal string
   const [theme, setTheme] = storage.preference.theme.useState()
   

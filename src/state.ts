@@ -70,8 +70,6 @@ export function defineState<T>(
           const serialized = storage.getItem(statePath)
 
           return genStoredValue({ deserialize, serialized })
-            ?? valueOrFactory(options.defaultValue)
-            ?? superDefaultValue
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [mounted]
@@ -99,7 +97,7 @@ export function defineState<T>(
 
           ctx.setStateVocab(embed(statePath, value))
 
-          if (storage && !isValueDefined(storedValue)) {
+          if (storage && storedValue === null) {
             storage.setItem(statePath, serialize(value))
           }
         },
