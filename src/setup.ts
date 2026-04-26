@@ -1,4 +1,4 @@
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR_SUPPORT } from "./constants";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR } from "./constants";
 
 const proxyCache = new WeakMap<object, Map<string, object>>()
 const leafCache = new WeakMap<object, Map<string, object>>()
@@ -75,7 +75,7 @@ function injectPaths<T extends object>(
                 {
                   ...leaf,
                   [STATE_PATH]: statePath,
-                  [STATE_SSR_SUPPORT]: ssr,
+                  [STATE_SSR]: ssr,
                 },
                 ...args
               ),

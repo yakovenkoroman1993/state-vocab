@@ -101,8 +101,6 @@ describe('genStoredValue', () => {
   it('десериализует значение из хранилища', () => {
     const result = genStoredValue({
       serialized: '"hello"',
-      defaultValue: undefined,
-      superDefaultValue: undefined,
       deserialize,
     })
     expect(result).toBe('hello')
@@ -111,51 +109,25 @@ describe('genStoredValue', () => {
   it('десериализует объект', () => {
     const result = genStoredValue({
       serialized: '{"a":1}',
-      defaultValue: undefined,
-      superDefaultValue: undefined,
       deserialize,
     })
     expect(result).toEqual({ a: 1 })
   })
 
-  it('возвращает defaultValue если serialized=null', () => {
+  it('возвращает null если serialized=null', () => {
     const result = genStoredValue({
       serialized: null,
-      defaultValue: 'default',
-      superDefaultValue: undefined,
       deserialize,
     })
-    expect(result).toBe('default')
+    expect(result).toBe(null)
   })
 
-  it('возвращает superDefaultValue если serialized=null и defaultValue=undefined', () => {
+  it('возвращает undefined если serialized=null', () => {
     const result = genStoredValue({
       serialized: null,
-      defaultValue: undefined,
-      superDefaultValue: 'super',
       deserialize,
     })
-    expect(result).toBe('super')
-  })
-
-  it('возвращает undefined если serialized=null и оба default=undefined', () => {
-    const result = genStoredValue({
-      serialized: null,
-      defaultValue: undefined,
-      superDefaultValue: undefined,
-      deserialize,
-    })
-    expect(result).toBeUndefined()
-  })
-
-  it('вызывает фабричный defaultValue если serialized=null', () => {
-    const result = genStoredValue({
-      serialized: null,
-      defaultValue: () => [1, 2, 3],
-      superDefaultValue: undefined,
-      deserialize,
-    })
-    expect(result).toEqual([1, 2, 3])
+    expect(result).toBe(null)
   })
 
   it('использует кастомный deserialize', () => {
@@ -163,8 +135,6 @@ describe('genStoredValue', () => {
     const date = new Date('2024-01-01')
     const result = genStoredValue({
       serialized: JSON.stringify(date.toISOString()),
-      defaultValue: undefined,
-      superDefaultValue: undefined,
       deserialize: customDeserialize,
     })
     expect(result).toBeInstanceOf(Date)

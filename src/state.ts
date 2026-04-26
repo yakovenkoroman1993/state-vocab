@@ -1,9 +1,9 @@
 import {  useEffect, useMemo, useRef, useState } from "react";
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR_SUPPORT } from "./constants";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR } from "./constants";
 import { get, useDebounce } from "./utils";
 import { useStateVocabContext } from "./context";
-import { embed, genStoredValue, isTransformer, valueOrFactory } from "./state.utils";
-import type { ValueOrFactory, ValueOrTransformer } from "./types";
+import { embed, genStoredValue, isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
+import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from "./state.types";
 
 const isServer = typeof window === "undefined" // SSR
 
@@ -12,39 +12,35 @@ export function defineState<T>(
     storage?: ValueOrFactory<Storage> // by default memory
     defaultValue?: T
     bidirectional?: true
-    autoSet?: true
-    serialize?: (v: T) => string
-    deserialize?: (v: string) => T
+    serialize?: Serialize<T>
+    deserialize?: Deserialize<T>
   } = {}
 ) {
-  const {
-    serialize = JSON.stringify,
-    deserialize = JSON.parse,
-  } = definitionOptions
-  
-  const superDefaultValue = definitionOptions.defaultValue
-  const superBidirectional = definitionOptions.bidirectional
-  const superAutoSet = definitionOptions.autoSet
   const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
-
+  const superBidirectional = definitionOptions.bidirectional
+  
   return {
     [STATE_DEFINITION]: true,   // marks this object as a leaf in the router tree
-    [STATE_SSR_SUPPORT]: false, // placeholder; injected at runtime by injectPaths()
+    [STATE_SSR]: false, // placeholder; injected at runtime by injectPaths()
     [STATE_PATH]: "",           // placeholder; injected at runtime by injectPaths()
 
     useState<D = T>(
       this: {
         [STATE_PATH]: string;
-        [STATE_SSR_SUPPORT]: boolean;
+        [STATE_SSR]: boolean;
       },
       options?: {
         defaultValue?: ValueOrFactory<D>,
         delayedSet?: number
         bidirectional?: true
-        autoSet?: true
         onSet?(nextValue: NoInfer<D>, prevValue: NoInfer<D>): void
       }
     ) {
+      const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
+      const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
+
+      const superDefaultValue = definitionOptions.defaultValue as unknown as D | undefined // Conscious unsafe cast
+      
       options ??= {}
 
       const onSet = useDebounce(
@@ -55,7 +51,7 @@ export function defineState<T>(
       const ctx = useStateVocabContext<D>()
 
       const statePath = this[STATE_PATH];
-      const ssr = this[STATE_SSR_SUPPORT];
+      const ssr = this[STATE_SSR];
 
       const [mounted, setMounted] = useState(ssr ? false : true)
 
@@ -73,21 +69,19 @@ export function defineState<T>(
           
           const serialized = storage.getItem(statePath)
 
-          return genStoredValue({
-            defaultValue: options.defaultValue,
-            serialized,
-            superDefaultValue,
-            deserialize,
-          })
+          return genStoredValue({ deserialize, serialized })
+            ?? valueOrFactory(options.defaultValue)
+            ?? superDefaultValue
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [statePath, mounted]
+        [mounted]
       );
       
       const value = useMemo(
         () => get(
           ctx.stateVocab,
           statePath,
+          // 3rd argument in order to avoid waiting for useEffect execution
           storedValue ?? valueOrFactory(options.defaultValue) ?? superDefaultValue 
         ) as D,
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,14 +94,14 @@ export function defineState<T>(
         
       useEffect(
         () => {
-          if (!storage || typeof storedValue === "undefined") {
+          if (!isValueDefined(value)) {
             return
           }
 
-          ctx.setStateVocab(embed<D>(statePath, storedValue))
+          ctx.setStateVocab(embed(statePath, value))
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [storedValue]
+        [value]
       );
 
       useEffect(() => {
@@ -122,12 +116,13 @@ export function defineState<T>(
 
           const serialized = event.newValue
 
-          const resolvedValue = genStoredValue({
-            defaultValue: options.defaultValue,
-            superDefaultValue,
-            serialized,
-            deserialize,
-          })
+          const resolvedValue = genStoredValue({ serialized, deserialize })
+            ?? valueOrFactory(options.defaultValue)
+            ?? superDefaultValue
+          
+          if (!isValueDefined(resolvedValue)) {
+            return
+          }
           
           ctx.setStateVocab(embed(statePath, resolvedValue))
 
@@ -164,15 +159,14 @@ export function defineState<T>(
       }
       
       const resetValue = () => {
-        const resolvedValue = valueOrFactory(options.defaultValue)
-          ?? superDefaultValue as unknown as D
+        const resolvedValue = valueOrFactory(options.defaultValue) ?? superDefaultValue
         
-        if (typeof resolvedValue === "undefined") {
+        if (!isValueDefined(resolvedValue)) {
           storage?.removeItem(statePath)
           return
         }
 
-        ctx.setStateVocab(embed<D>(statePath, resolvedValue))
+        ctx.setStateVocab(embed(statePath, resolvedValue))
         onSet(resolvedValue, prevValueRef.current)
         prevValueRef.current = resolvedValue
 
@@ -180,14 +174,6 @@ export function defineState<T>(
           storage.setItem(statePath, serialize(resolvedValue))
         }
       }
-
-      useEffect(() => {
-        if (options.autoSet || superAutoSet) {
-          setValue(value)
-        }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [])
-      
       return [
         value,
         setValue,

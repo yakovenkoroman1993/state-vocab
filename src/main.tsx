@@ -54,9 +54,12 @@ const storage = setupStorage({
     }),
   },
   stats: {
-    counter: defineState({ defaultValue: 0 }),
+    counter: defineState({
+      defaultValue: 0,
+      storage: sessionStorage
+    }),
     list: defineState({
-      storage: localStorage
+      storage: sessionStorage
     }),
   },
   json: {

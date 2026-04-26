@@ -1,8 +1,8 @@
 import type { Vocab } from "./context"
-import type { ValueOrTransformer, Transformer, ValueOrFactory, Factory } from "./types"
+import type { ValueOrTransformer, Transformer, ValueOrFactory, Factory } from "./state.types"
 import { set } from "./utils"
 
-// embedding value: D into "a.b.c.d" => { a: { b: { c: { d: value } } } }
+// Embedding value: D into "a.b.c.d" => { a: { b: { c: { d: value } } } }
 export const embed = <D>(statePath: string, value: D) => (vocab: Vocab<D>) => {
   const nextVocab = { ...vocab }
   set(nextVocab, statePath, value)
@@ -12,21 +12,13 @@ export const embed = <D>(statePath: string, value: D) => (vocab: Vocab<D>) => {
 export const genStoredValue = <V>(
   options: {
     serialized: string | null,
-    defaultValue: ValueOrFactory<V>,
-    superDefaultValue: unknown,
     deserialize: (v: string) => V
   }
 ) => {
-  const { serialized, defaultValue, superDefaultValue, deserialize } = options
+  const { serialized, deserialize } = options
 
   if (serialized === null) {
-    const nextValue = valueOrFactory(defaultValue) ?? superDefaultValue as V
-      
-    if (typeof nextValue === "undefined") {
-      return undefined as V
-    }
-
-    return nextValue
+    return null
   } 
 
   return deserialize(serialized)
@@ -38,6 +30,10 @@ export const isTransformer = <V>(v: ValueOrTransformer<V>): v is Transformer<V> 
 
 const isFactory = <V>(v: ValueOrFactory<V>): v is Factory<V> => {
   return typeof v === "function";
+}
+
+export const isValueDefined = <V>(v: V | undefined): v is V => {
+  return typeof v !== "undefined"
 }
 
 export const valueOrFactory = <V>(input: ValueOrFactory<V>) => {

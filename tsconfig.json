@@ -1,6 +1,19 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.build.json" },
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationDir": "dist/types",
+    "emitDeclarationOnly": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "jsx": "react-jsx",
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/test-setup.ts",
+    "src/main.tsx",
+    "src/__tests__",
   ]
 }

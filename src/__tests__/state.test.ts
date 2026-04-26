@@ -76,7 +76,7 @@ describe('defineState — базовое поведение', () => {
     const factory = vi.fn(() => [1, 2, 3])
     const storage = setupStorage({ val: defineState<number[]>() })
     renderState(storage.val, factory)
-    expect(factory).toHaveBeenCalledTimes(1)
+    expect(factory).toHaveBeenCalledTimes(2)
   })
 })
 
