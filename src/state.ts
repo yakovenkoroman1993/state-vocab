@@ -91,25 +91,18 @@ export function defineState<T>(
         
       useEffect(
         () => {
-          console.log("!!! value", value)
           if (!isValueDefined(value)) {
             return
           }
 
-          console.log("!!! statePath", statePath)
-          console.log("!!! embed(statePath, value)", embed(statePath, value))
           ctx.setStateVocab(embed(statePath, value))
 
-          console.log("!!! storage", storage)
-          console.log("!!! storedValue", storedValue)
-          console.log("!!! typeof storedValue", typeof storedValue)
           if (storage && storedValue === null) {
-            console.log("!!! serialize(value)", serialize(value))
             storage.setItem(statePath, serialize(value))
           }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
+        [storedValue]
       );
 
       useEffect(() => {

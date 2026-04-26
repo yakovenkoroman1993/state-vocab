@@ -97,9 +97,11 @@ const storage = setupStorage({
       b: number;
       c: string[];
     }>({
-      storage: localStorage
+      storage: localStorage,
     }),
   }
+}, {
+  // ssr: true
 })
 
 const debouncedSetItem = debounce(async (key: string, value: string) => {
