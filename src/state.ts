@@ -88,7 +88,6 @@ export function defineState<T>(
         [
           ctx.stateVocab,
           storedValue,
-          statePath
         ]
       )
         
@@ -99,6 +98,10 @@ export function defineState<T>(
           }
 
           ctx.setStateVocab(embed(statePath, value))
+
+          if (storage && !isValueDefined(storedValue)) {
+            storage.setItem(statePath, serialize(value))
+          }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [value]
@@ -136,7 +139,6 @@ export function defineState<T>(
         return () => window.removeEventListener("storage", handleStorageChange)
       // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [
-        statePath,
         options.bidirectional,
         superBidirectional,
       ])
