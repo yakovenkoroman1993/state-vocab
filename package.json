@@ -1,6 +1,6 @@
 {
   "name": "@yakocloud/state-vocab",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "main": "dist/state-vocab.cjs.js",
   "module": "dist/state-vocab.es.js",
   "types": "dist/types/index.d.ts",
