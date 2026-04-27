@@ -74,8 +74,12 @@ describe('defineState — базовое поведение', () => {
 
   it('фабричный defaultValue вызывается при инициализации', () => {
     const factory = vi.fn(() => [1, 2, 3])
-    const storage = setupStorage({ val: defineState<number[]>() })
-    renderState(storage.val, factory)
+    const storage = setupStorage({
+      val: defineState<number[]>({
+        defaultValue: factory
+      })
+    })
+    renderState(storage.val)
     expect(factory).toHaveBeenCalledTimes(2)
   })
 })

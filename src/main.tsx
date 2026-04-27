@@ -4,6 +4,7 @@ import { StateVocabContextProvider } from './context'
 import { setupStorage } from './setup'
 import { defineState } from './state'
 import { debounce, isJsonValid } from './utils'
+import { toDateString, toLocalDatetimeString } from './main.utils'
 
 type Theme = "Dark" | "White" | "System"
 
@@ -23,10 +24,10 @@ function fetchMock(value: unknown) {
 const storage = setupStorage({
   preference: {
     theme: defineState<Theme>({ storage: () => localStorage, defaultValue: "Dark" }),
-    nightMode: defineState({ storage: sessionStorage }),
+    nightMode: defineState({ storage: sessionStorage, defaultValue: false }),
   },
   personal: {
-    note: defineState({ storage: localStorage }),
+    note: defineState({ storage: localStorage, defaultValue: "" }),
     birthday: defineState({
       storage: localStorage,
       bidirectional: true,
@@ -58,19 +59,23 @@ const storage = setupStorage({
       defaultValue: 0,
       storage: sessionStorage
     }),
-    list: defineState({
+    list: defineState<{ 
+      id: number
+      label: string
+    }[]>({
       storage: sessionStorage
     }),
   },
   json: {
-    objectDraft: defineState(),
-    object: defineState({
+    objectDraft: defineState<string>(),
+    object: defineState<object>({
       storage: sessionStorage,
     })
   },
   server: {
     db: defineState({
       // customStorage
+      defaultValue: "",
       storage: {
         length: 0,
         clear: function (): void {
@@ -122,9 +127,7 @@ function Test() {
   const [theme, setTheme] = storage.preference.theme.useState()
   
   // sessionStorage, boolean
-  const [nightMode, setNightMode] = storage.preference.nightMode.useState({
-    defaultValue: false
-  })
+  const [nightMode, setNightMode] = storage.preference.nightMode.useState()
   
   // memoryStorage, number
   const [counter, setCounter, resetCounter] = storage.stats.counter.useState({
@@ -154,12 +157,10 @@ function Test() {
   })
 
   // customStorage, string
-  const [db, setDb] = storage.server.db.useState({
-    defaultValue: "",
-  })
+  const [db, setDb] = storage.server.db.useState()
 
   // sessionStorage, object
-  const [json, setJson] = storage.json.object.useState<object>({
+  const [json, setJson] = storage.json.object.useState({
     defaultValue: {},
     delayedSet: 1000,
     onSet: fetchMock
@@ -172,29 +173,13 @@ function Test() {
   // localStorage, Date
   const [birthday, setBirthday] = storage.personal.birthday.useState()
 
-  const toDateString = (date: Date | null) => {
-    if (!date) {
-      return
-    }
-    const offset = date.getTimezoneOffset() * 60000
-    return new Date(date.getTime() - offset).toISOString().slice(0, 10)
-  }
-
-  
   // localStorage, Date
   const [alarm, setAlarm] = storage.personal.alarm.useState({
     defaultValue: () => new Date()
   })
-  const toLocalDatetimeString = (date: Date) => {
-    const offset = date.getTimezoneOffset() * 60000
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-  }
 
   // memoryStorage, array
-  const [list, setList] = storage.stats.list.useState<{ 
-    id: number
-    label: string
-  }[]>({
+  const [list, setList] = storage.stats.list.useState({
     defaultValue: []
   })
 
@@ -301,6 +286,25 @@ function Test() {
         value={toLocalDatetimeString(alarm)}
         onChange={(e) => setAlarm(new Date(e.target.value))}
       />
+      <Inside />
+    </div>
+  )
+}
+
+function Inside() {
+  return (
+    <DeepInside />
+  )
+}
+
+function DeepInside() {
+  const [pageProps] = storage.demo.pageProps.useState()
+
+  return (
+    <div>
+      <p>a: {pageProps.a}</p>
+      <p>b: {pageProps.b}</p>
+      <p>c: {pageProps.c.join(", ")}</p>
     </div>
   )
 }

@@ -9,21 +9,6 @@ export const embed = <D>(statePath: string, value: D) => (vocab: Vocab<D>) => {
   return nextVocab
 }
 
-export const genStoredValue = <V>(
-  options: {
-    serialized: string | null,
-    deserialize: (v: string) => V
-  }
-) => {
-  const { serialized, deserialize } = options
-
-  if (serialized === null) {
-    return null
-  } 
-
-  return deserialize(serialized)
-}
-
 export const isTransformer = <V>(v: ValueOrTransformer<V>): v is Transformer<V> => {
   return typeof v === "function";
 }

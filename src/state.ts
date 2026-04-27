@@ -2,18 +2,18 @@ import {  useEffect, useMemo, useRef, useState } from "react";
 import { STATE_DEFINITION, STATE_PATH, STATE_SSR } from "./constants";
 import { get, useDebounce } from "./utils";
 import { useStateVocabContext } from "./context";
-import { embed, genStoredValue, isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
+import { embed, isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from "./state.types";
 
 const isServer = typeof window === "undefined" // SSR
 
-export function defineState<T>(
+export function defineState<D>(
   definitionOptions: {
     storage?: ValueOrFactory<Storage> // by default memory
-    defaultValue?: T
+    defaultValue?: ValueOrFactory<D>
     bidirectional?: true
-    serialize?: Serialize<T>
-    deserialize?: Deserialize<T>
+    serialize?: Serialize<D>
+    deserialize?: Deserialize<D>
   } = {}
 ) {
   return {
@@ -21,7 +21,7 @@ export function defineState<T>(
     [STATE_SSR]: false, // placeholder; injected at runtime by injectPaths()
     [STATE_PATH]: "",           // placeholder; injected at runtime by injectPaths()
 
-    useState<D = T>(
+    useState(
       this: {
         [STATE_PATH]: string;
         [STATE_SSR]: boolean;
@@ -38,10 +38,12 @@ export function defineState<T>(
       const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
       const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
 
-      const superDefaultValue = definitionOptions.defaultValue as unknown as D | undefined // Conscious unsafe cast
+      const superDefaultValue = valueOrFactory(definitionOptions.defaultValue)
       const superBidirectional = definitionOptions.bidirectional
       
       options ??= {}
+
+      const defaultValue = valueOrFactory(options.defaultValue)
 
       const onSet = useDebounce(
         options.onSet ?? (() => {}),
@@ -69,7 +71,7 @@ export function defineState<T>(
           
           const serialized = storage.getItem(statePath)
 
-          return genStoredValue({ deserialize, serialized })
+          return serialized === null ? null : deserialize(serialized)
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [mounted]
@@ -80,7 +82,7 @@ export function defineState<T>(
           ctx.stateVocab,
           statePath,
           // 3rd argument in order to avoid waiting for useEffect execution
-          storedValue ?? valueOrFactory(options.defaultValue) ?? superDefaultValue 
+          storedValue ?? defaultValue ?? superDefaultValue 
         ) as D,
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [
@@ -88,7 +90,9 @@ export function defineState<T>(
           storedValue,
         ]
       )
-        
+      
+      const prevValueRef = useRef(value)  
+
       useEffect(
         () => {
           if (!isValueDefined(value)) {
@@ -116,10 +120,8 @@ export function defineState<T>(
           }
 
           const serialized = event.newValue
-
-          const resolvedValue = genStoredValue({ serialized, deserialize })
-            ?? valueOrFactory(options.defaultValue)
-            ?? superDefaultValue
+          const deserialized = serialized === null ? null : deserialize(serialized)
+          const resolvedValue = deserialized ?? defaultValue ?? superDefaultValue
           
           if (!isValueDefined(resolvedValue)) {
             return
@@ -141,8 +143,6 @@ export function defineState<T>(
         superBidirectional,
       ])
 
-      const prevValueRef = useRef(value)
-
       const setValue = (nextValue: ValueOrTransformer<D>) => {
         const resolvedValue = isTransformer(nextValue)
           ? nextValue(prevValueRef.current)
@@ -159,7 +159,7 @@ export function defineState<T>(
       }
       
       const resetValue = () => {
-        const resolvedValue = valueOrFactory(options.defaultValue) ?? superDefaultValue
+        const resolvedValue = defaultValue ?? superDefaultValue
         
         if (!isValueDefined(resolvedValue)) {
           storage?.removeItem(statePath)

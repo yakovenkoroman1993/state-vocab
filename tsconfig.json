@@ -15,7 +15,6 @@
   "include": ["src"],
   "exclude": [
     "src/test-setup.ts",
-    "src/main.tsx",
     "src/__tests__",
   ]
 }

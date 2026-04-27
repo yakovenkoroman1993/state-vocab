@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect } from 'vitest'
-import { embed, genStoredValue, valueOrFactory } from '../state.utils'
+import { embed, valueOrFactory } from '../state.utils'
 
 // ─── embed ────────────────────────────────────────────────────────────────────
 
@@ -99,44 +99,22 @@ describe('genStoredValue', () => {
   const deserialize = JSON.parse
 
   it('десериализует значение из хранилища', () => {
-    const result = genStoredValue({
-      serialized: '"hello"',
-      deserialize,
-    })
+    const serialized = '"hello"'
+    const result = deserialize(serialized)
     expect(result).toBe('hello')
   })
 
   it('десериализует объект', () => {
-    const result = genStoredValue({
-      serialized: '{"a":1}',
-      deserialize,
-    })
+    const serialized = '{"a":1}'
+    const result = deserialize(serialized)
     expect(result).toEqual({ a: 1 })
-  })
-
-  it('возвращает null если serialized=null', () => {
-    const result = genStoredValue({
-      serialized: null,
-      deserialize,
-    })
-    expect(result).toBe(null)
-  })
-
-  it('возвращает undefined если serialized=null', () => {
-    const result = genStoredValue({
-      serialized: null,
-      deserialize,
-    })
-    expect(result).toBe(null)
   })
 
   it('использует кастомный deserialize', () => {
     const customDeserialize = (raw: string) => new Date(JSON.parse(raw))
     const date = new Date('2024-01-01')
-    const result = genStoredValue({
-      serialized: JSON.stringify(date.toISOString()),
-      deserialize: customDeserialize,
-    })
+    const serialized = JSON.stringify(date.toISOString())
+    const result = serialized === null ? null : customDeserialize(serialized)
     expect(result).toBeInstanceOf(Date)
   })
 })
