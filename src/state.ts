@@ -7,6 +7,7 @@ import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from 
 
 const isServer = typeof window === "undefined" // SSR
 
+// TODO: ! SUPPORT ASYNC STORAGE
 export function defineState<D>(
   definitionOptions: {
     storage?: ValueOrFactory<Storage> // by default memory
@@ -104,6 +105,8 @@ export function defineState<D>(
           if (storage && storedValue === null) {
             storage.setItem(statePath, serialize(value))
           }
+
+          prevValueRef.current = value
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [storedValue]
