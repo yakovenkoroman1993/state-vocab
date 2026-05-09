@@ -1,16 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, act } from "@testing-library/react"
-import React from "react"
 import { defineState } from "../state"
 import { setupStorage } from "../setup"
-import { StateVocabContextProvider } from "../context"
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-function makeWrapper() {
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(StateVocabContextProvider, null, children)
-}
 
 function renderState<T>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,8 +12,7 @@ function renderState<T>(
   options?: Parameters<typeof stateNode.useState>[0]
 ) {
   return renderHook(
-    () => stateNode.useState({...options, defaultValue}),
-    { wrapper: makeWrapper() }
+    () => stateNode.useState({ ...options, defaultValue }),
   )
 }
 
@@ -46,6 +38,15 @@ describe('defineState — базовое поведение', () => {
     const { result } = renderState(storage.val, 10)
 
     act(() => result.current[1]((prev: number) => prev + 5))
+    expect(result.current[0]).toBe(15)
+  })
+  
+  it('инициализация стэйта и setState в другом месте', () => {
+    const storage = setupStorage({ val: defineState<number>() })
+    const { result } = renderState(storage.val, 10)
+    const { result: result2 } = renderState(storage.val)
+
+    act(() => result2.current[1]((prev: number) => prev + 5))
     expect(result.current[0]).toBe(15)
   })
 
@@ -80,7 +81,7 @@ describe('defineState — базовое поведение', () => {
       })
     })
     renderState(storage.val)
-    expect(factory).toHaveBeenCalledTimes(2)
+    expect(factory).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -356,7 +357,6 @@ describe('defineState — синхронизация через контекст
           defaultValue: 0
         }),
       }),
-      { wrapper: makeWrapper() }
     )
 
     act(() => result.current.a[1](42))
@@ -383,7 +383,7 @@ describe('defineState — известные проблемы', () => {
     const { result, rerender } = renderHook(
       ({ cb }: { cb: (n: number, p: number) => void }) =>
         storage.v.useState({ defaultValue: 0, onSet: cb }),
-      { wrapper: makeWrapper(), initialProps: { cb: first } }
+      { initialProps: { cb: first } }
     )
 
     rerender({ cb: second })

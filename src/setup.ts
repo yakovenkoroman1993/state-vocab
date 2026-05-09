@@ -1,29 +1,30 @@
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR } from "./constants";
+import { STATE_DEFINITION, STATE_PATH, STATE_VERBOSE } from "./constants";
 
 const proxyCache = new WeakMap<object, Map<string, object>>()
 const leafCache = new WeakMap<object, Map<string, object>>()
 
+type InjectPathsOptions = {
+  path: string
+  verbose: boolean
+}
 /**
  * Recursively traverses a router object and injects the current path (STATE_PATH)
  * into every leaf node of the tree.
  *
  * @param router - Nested object representing a route/state hierarchy
  * @param path   - Accumulated dot-separated path from the root to the current node (e.g. "queue.email.send")
- * @param ssr    - enable SSR support
+ * @param verbose - enable verbose logs
  * @returns A Proxy over the router with paths automatically injected into leaf nodes
  */
 function injectPaths<T extends object>(
   router: T,
-  options?: Partial<{
-    path: string
-    ssr: boolean
-  }>
+  options?: Partial<InjectPathsOptions>
 ): T {
   options ??= {}
 
   const {
     path = "",
-    ssr,
+    verbose,
   } = options
 
   let pathCache = proxyCache.get(router)
@@ -75,7 +76,7 @@ function injectPaths<T extends object>(
                 {
                   ...leaf,
                   [STATE_PATH]: statePath,
-                  [STATE_SSR]: ssr,
+                  [STATE_VERBOSE]: verbose,
                 },
                 ...args
               ),
@@ -94,7 +95,7 @@ function injectPaths<T extends object>(
       if (value && typeof value === "object") {
         return injectPaths(value, {
           path: statePath,
-          ssr,
+          verbose,
         });
       }
 
@@ -110,9 +111,7 @@ function injectPaths<T extends object>(
 
 export function setupStorage<T extends object>(
   native: T,
-  options?: Partial<{
-    ssr: boolean
-  }>
+  options?: Partial<Omit<InjectPathsOptions, "path">>
 ): T {
   return injectPaths(native, options);
 }

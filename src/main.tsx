@@ -1,6 +1,5 @@
-import { StrictMode, useId } from 'react'
+import React, { useId } from 'react'
 import { createRoot } from 'react-dom/client'
-import { StateVocabContextProvider } from './context'
 import { setupStorage } from './setup'
 import { defineState } from './state'
 import { debounce, isJsonValid } from './utils'
@@ -103,10 +102,12 @@ const storage = setupStorage({
       c: string[];
     }>({
       storage: localStorage,
+      bidirectional: true
     }),
   }
 }, {
   // ssr: true
+  verbose: true,
 })
 
 const debouncedSetItem = debounce(async (key: string, value: string) => {
@@ -123,13 +124,13 @@ function Test() {
     },
   });
 
-  // localStorage, literal string
+  // literal string
   const [theme, setTheme] = storage.preference.theme.useState()
   
-  // sessionStorage, boolean
+  // boolean
   const [nightMode, setNightMode] = storage.preference.nightMode.useState()
   
-  // memoryStorage, number
+  // number
   const [counter, setCounter, resetCounter] = storage.stats.counter.useState({
     defaultValue: 0,
     onSet(nextValue, prevValue) {
@@ -148,7 +149,7 @@ function Test() {
     }
   })
 
-  // localStorage, string + debounced fetch
+  // string + debounced fetch
   const [note, setNote] = storage.personal.note.useState({
     defaultValue: "",
     delayedSet: 1000,
@@ -159,7 +160,7 @@ function Test() {
   // customStorage, string
   const [db, setDb] = storage.server.db.useState()
 
-  // sessionStorage, object
+  // object
   const [json, setJson] = storage.json.object.useState({
     defaultValue: {},
     delayedSet: 1000,
@@ -170,15 +171,15 @@ function Test() {
     defaultValue: () => JSON.stringify(json)
   })
 
-  // localStorage, Date
+  // Date
   const [birthday, setBirthday] = storage.personal.birthday.useState()
 
-  // localStorage, Date
+  // Date
   const [alarm, setAlarm] = storage.personal.alarm.useState({
     defaultValue: () => new Date()
   })
 
-  // memoryStorage, array
+  // array
   const [list, setList] = storage.stats.list.useState({
     defaultValue: []
   })
@@ -286,7 +287,8 @@ function Test() {
         value={toLocalDatetimeString(alarm)}
         onChange={(e) => setAlarm(new Date(e.target.value))}
       />
-      <Inside />
+     
+      <Inside /> 
     </div>
   )
 }
@@ -298,26 +300,37 @@ function Inside() {
 }
 
 function DeepInside() {
-  const [pageProps] = storage.demo.pageProps.useState()
+  const [pageProps, setPageProps] = storage.demo.pageProps.useState()
 
+  const gena = () => Math.random().toString().slice(2, 3)
+  
+  const handleRandom = () => {
+    setPageProps((all) => {
+      return { 
+        ...all,
+        b: +gena(),
+        c: [gena(), gena()],
+      }
+    })
+  }
+  
   return (
     <div>
       <p>a: {pageProps.a}</p>
       <p>b: {pageProps.b}</p>
       <p>c: {pageProps.c.join(", ")}</p>
+      <button onClick={handleRandom}>random</button>
     </div>
   )
 }
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <StateVocabContextProvider verbose>
-      <Test />
-      <br />
-      <br />
-      <br />
-      <br />
-      <Test />
-    </StateVocabContextProvider>
-  </StrictMode>,
+  <React.StrictMode>
+    <Test />
+    <br />
+    <br />
+    <br />
+    <br />
+    <Test />
+  </React.StrictMode>,
 )

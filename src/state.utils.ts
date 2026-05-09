@@ -1,13 +1,4 @@
-import type { Vocab } from "./context"
 import type { ValueOrTransformer, Transformer, ValueOrFactory, Factory } from "./state.types"
-import { set } from "./utils"
-
-// Embedding value: D into "a.b.c.d" => { a: { b: { c: { d: value } } } }
-export const embed = <D>(statePath: string, value: D) => (vocab: Vocab<D>) => {
-  const nextVocab = { ...vocab }
-  set(nextVocab, statePath, value)
-  return nextVocab
-}
 
 export const isTransformer = <V>(v: ValueOrTransformer<V>): v is Transformer<V> => {
   return typeof v === "function";

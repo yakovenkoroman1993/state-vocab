@@ -93,7 +93,7 @@ export const isJsonValid = (input: string) => {
   }
 }
 
-export function logStyled(obj: object) {
+export function logStyled(obj: unknown) {
   const lines = JSON.stringify(obj, null, 2).split('\n')
   const parts: string[] = []
   const styles: string[] = []

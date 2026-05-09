@@ -52,7 +52,7 @@ function ThemeToggle() {
 }
 ```
 
-**Initialize once at the root, read anywhere in the tree.** Call `.useState()` with a `defaultValue` at a parent component to seed the state — then call `.useState()` without arguments in any descendant to consume it. No context wiring, no prop passing. Convenient in NextJs
+**Initialize once at the root, read anywhere in the tree.** Call `.useState()` with a `defaultValue` at a parent component to seed the state — then call `.useState()` without arguments in any descendant to consume it. No context wiring, no prop passing.
 
 ```tsx
 // Root component — initializes the state
@@ -82,8 +82,6 @@ function DeepChild() {
 }
 ```
 
-The `defaultValue` at the root acts as the initializer — subsequent `.useState()` calls in children pick up the shared value automatically without re-specifying defaults.
-
 **Dot-notation access with full TypeScript inference.** The state tree is navigated like a plain object — autocomplete guides you to the right node, and types flow from `defineState<T>` all the way to the hook return value without any manual annotations.
 
 ```ts
@@ -105,7 +103,7 @@ defineState({
 })
 ```
 
-**Minimal API surface.** Three exports: `defineState`, `setupStorage`, `StorageProvider`. No actions, reducers, selectors, or stores to configure.
+**Minimal API surface.** Two exports: `defineState`, `setupStorage`. No actions, reducers, selectors, or stores to configure.
 
 ## Installation
 
@@ -118,7 +116,7 @@ npm install @yakocloud/state-vocab react react-dom
 ## Quick Start
 
 ```tsx
-import { setupStorage, defineState, StorageProvider } from '@yakocloud/state-vocab'
+import { setupStorage, defineState } from '@yakocloud/state-vocab'
 
 type Theme = 'Dark' | 'White' | 'System'
 
@@ -132,14 +130,6 @@ const storage = setupStorage({
     },
   },
 })
-
-function App() {
-  return (
-    <StorageProvider>
-      <Settings />
-    </StorageProvider>
-  )
-}
 
 function Settings() {
   const [theme, setTheme] = storage.path.to.theme.useState()
@@ -197,7 +187,7 @@ Wraps a nested object of `defineState()` nodes and injects dot-separated paths i
 
 | Option | Type | Description | Default |
 |---|---|---|---|
-| `ssr` | `boolean \| undefined` | Defer storage reads until after mount (SSR support) | `false` |
+| `verbose` | `boolean \| undefined` | Log current state to the browser console on every change | `false` |
 
 ```ts
 const storage = setupStorage({
@@ -211,24 +201,10 @@ storage.user.name  // → path: "user.name"
 storage.user.age   // → path: "user.age"
 ```
 
-### `StorageProvider`
+Enable verbose logging during development:
 
-A React context provider that must wrap all components using `.useState()` from any state node. Place it once near the top of your tree.
-
-```tsx
-createRoot(document.getElementById('root')!).render(
-  <StorageProvider>
-    <App />
-  </StorageProvider>
-)
-```
-
-Accepts an optional `verbose` prop that logs the current state vocab to the browser console on every change — useful during development.
-
-```tsx
-<StorageProvider verbose>
-  <App />
-</StorageProvider>
+```ts
+const storage = setupStorage({ ... }, { verbose: true })
 ```
 
 ## `useState` Hook
@@ -309,7 +285,7 @@ const storage = setupStorage({
 ## Full Example
 
 ```tsx
-import { setupStorage, defineState, StorageProvider } from '@yakocloud/state-vocab'
+import { setupStorage, defineState } from '@yakocloud/state-vocab'
 
 type Theme = 'Dark' | 'White' | 'System'
 
@@ -393,11 +369,7 @@ function Dashboard() {
   )
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StorageProvider>
-    <Page />
-  </StorageProvider>
-)
+createRoot(document.getElementById('root')!).render(<Page />)
 ```
 
 ## API Reference
@@ -416,17 +388,9 @@ createRoot(document.getElementById('root')!).render(
 
 | Option | Type | Default |
 |---|---|---|
-| `ssr` | `boolean \| undefined` | `false` |
+| `verbose` | `boolean \| undefined` | `false` |
 
 Returns a proxied copy of `tree` with paths injected into all leaf nodes.
-
-### `StorageProvider`
-
-React context provider. Must be an ancestor of any component using `.useState()`.
-
-| Prop | Type | Description |
-|---|---|---|
-| `verbose` | `boolean \| undefined` | Log state vocab to console on every change |
 
 ### `node.useState(options?)`
 

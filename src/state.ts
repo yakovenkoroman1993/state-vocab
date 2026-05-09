@@ -1,11 +1,47 @@
-import {  useEffect, useMemo, useRef, useState } from "react";
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR } from "./constants";
-import { get, useDebounce } from "./utils";
-import { useStateVocabContext } from "./context";
-import { embed, isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
+import {  useCallback, useEffect, useEffectEvent, useRef, useSyncExternalStore } from "react";
+import { STATE_DEFINITION, STATE_PATH, STATE_VERBOSE } from "./constants";
+import { get, set, logStyled, useDebounce } from "./utils";
+import { isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from "./state.types";
 
-const isServer = typeof window === "undefined" // SSR
+type Vocab<T = unknown> = Record<string, T | null>
+
+type Listener = () => void
+
+class VocabStore {
+  #vocab: Vocab
+  #listeners: Set<Listener>
+
+  constructor() {
+    this.#vocab = {}
+    this.#listeners = new Set<Listener>()
+  }
+  subscribe(listener: Listener) {
+    this.#listeners.add(listener)
+    return () => this.#listeners.delete(listener);
+  }
+  getClientSnapshot<V>() {
+    return this.#vocab as Vocab<V>;
+  }
+  getServerSnapshot<V>() {
+    return this.#vocab as Vocab<V>;
+  }
+  set<V>(statePath: string, value: ValueOrTransformer<V>) {
+    const currentValue = get(this.#vocab, statePath) as V
+    
+    const resolvedValue = isTransformer(value)
+      ? value(currentValue)
+      : value
+    
+    
+    const nextVocab = { ...this.#vocab }
+    // Embedding value: D into "a.b.c.d" => { a: { b: { c: { d: value } } } }
+    set(nextVocab, statePath, resolvedValue)
+
+    this.#vocab = nextVocab
+    this.#listeners.forEach((l) => l()) // emit
+  }
+}
 
 // TODO: ! SUPPORT ASYNC STORAGE
 export function defineState<D>(
@@ -17,15 +53,17 @@ export function defineState<D>(
     deserialize?: Deserialize<D>
   } = {}
 ) {
+  const vocabStore = new VocabStore()
+
   return {
     [STATE_DEFINITION]: true,   // marks this object as a leaf in the router tree
-    [STATE_SSR]: false, // placeholder; injected at runtime by injectPaths()
     [STATE_PATH]: "",           // placeholder; injected at runtime by injectPaths()
+    [STATE_VERBOSE]: false,     // placeholder
 
     useState(
       this: {
         [STATE_PATH]: string;
-        [STATE_SSR]: boolean;
+        [STATE_VERBOSE]: boolean;
       },
       options?: {
         defaultValue?: ValueOrFactory<D>,
@@ -34,156 +72,149 @@ export function defineState<D>(
         onSet?(nextValue: NoInfer<D>, prevValue: NoInfer<D>): void
       }
     ) {
-      const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
-
+      const storage = valueOrFactory(definitionOptions.storage)
       const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
       const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
 
       const superDefaultValue = valueOrFactory(definitionOptions.defaultValue)
       const superBidirectional = definitionOptions.bidirectional
-      
+
       options ??= {}
 
-      const defaultValue = valueOrFactory(options.defaultValue)
+      const defaultValue = valueOrFactory(options.defaultValue) ?? superDefaultValue
+      const bidirectional = options.bidirectional ?? superBidirectional
 
       const onSet = useDebounce(
         options.onSet ?? (() => {}),
         options.delayedSet,
         []
       )
-      const ctx = useStateVocabContext<D>()
 
       const statePath = this[STATE_PATH];
-      const ssr = this[STATE_SSR];
+      const verbose = this[STATE_VERBOSE];
 
-      const [mounted, setMounted] = useState(ssr ? false : true)
+      const prevValueRef = useRef<D>(undefined as D)
 
-      useEffect(() => setMounted(true), [])
+      const initializedRef = useRef(false)
+      if (!initializedRef.current) {
+        initializedRef.current = true
 
-      const storedValue = useMemo(
+        let initialValue = get(vocabStore.getServerSnapshot(), statePath) as D | undefined
+
+        if (!isValueDefined(initialValue)) {
+
+          initialValue = defaultValue
+
+          if (storage) {
+            const serialized = storage.getItem(statePath)
+
+            if (serialized === null) {
+              if (isValueDefined(initialValue)) {
+                storage.setItem(statePath, serialize(initialValue))
+              }
+            } else { 
+              initialValue = deserialize(serialized)
+            }
+          }
+
+          if (isValueDefined(initialValue)) {
+            vocabStore.set(statePath, initialValue)
+          }
+        }
+      }
+
+      const vocab = useSyncExternalStore<Vocab<D>>(
+        vocabStore.subscribe.bind(vocabStore),
+        () => vocabStore.getClientSnapshot(),
         () => {
-          if (!mounted) {
-            return undefined
-          }
-
-          if (!storage) {
-            return undefined
-          }
-          
-          const serialized = storage.getItem(statePath)
-
-          return serialized === null ? null : deserialize(serialized)
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [mounted]
-      );
-      
-      const value = useMemo(
-        () => get(
-          ctx.stateVocab,
-          statePath,
-          // 3rd argument in order to avoid waiting for useEffect execution
-          storedValue ?? defaultValue ?? superDefaultValue 
-        ) as D,
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [
-          ctx.stateVocab,
-          storedValue,
-        ]
+          // TODO: ! SSR
+          return vocabStore.getServerSnapshot()
+        }
       )
-      
-      const prevValueRef = useRef(value)  
 
-      useEffect(
-        () => {
-          if (!isValueDefined(value)) {
-            return
-          }
+      if (verbose) {
+        logStyled(vocab)
+      }
 
-          ctx.setStateVocab(embed(statePath, value))
 
-          if (storage && storedValue === null) {
-            storage.setItem(statePath, serialize(value))
-          }
+      const value = get(vocab, statePath) as D
+      prevValueRef.current = value
 
-          prevValueRef.current = value
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [storedValue]
-      );
-
-      useEffect(() => {
-        if (!options.bidirectional && !superBidirectional) {
+      const handleStorageChange = useEffectEvent((event: StorageEvent) => {
+        if (event.key !== statePath) {
           return
         }
 
-        const handleStorageChange = (event: StorageEvent) => {
-          if (event.key !== statePath) {
-            return
-          }
+        const serialized = event.newValue
+        const deserialized = serialized === null ? null : deserialize(serialized)
+        const resolvedValue = deserialized ?? defaultValue
+        
+        if (!isValueDefined(resolvedValue)) {
+          return
+        }
+        
+        vocabStore.set(statePath, resolvedValue)
 
-          const serialized = event.newValue
-          const deserialized = serialized === null ? null : deserialize(serialized)
-          const resolvedValue = deserialized ?? defaultValue ?? superDefaultValue
-          
-          if (!isValueDefined(resolvedValue)) {
-            return
-          }
-          
-          ctx.setStateVocab(embed(statePath, resolvedValue))
-
-          onSet(resolvedValue, prevValueRef.current)
-
-          prevValueRef.current = resolvedValue
+        onSet(resolvedValue, prevValueRef.current)
+      })
+      
+      useEffect(() => {
+        if (!bidirectional) {
+          return
         }
 
         window.addEventListener("storage", handleStorageChange);
 
         return () => window.removeEventListener("storage", handleStorageChange)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, [
-        options.bidirectional,
-        superBidirectional,
-      ])
+      }, [bidirectional])
 
-      const setValue = (nextValue: ValueOrTransformer<D>) => {
+      const setValue = useCallback((nextValue: ValueOrTransformer<D>) => {
         const resolvedValue = isTransformer(nextValue)
           ? nextValue(prevValueRef.current)
           : nextValue
         
-        ctx.setStateVocab(embed(statePath, resolvedValue))
+        vocabStore.set(statePath, resolvedValue)
         onSet(resolvedValue, prevValueRef.current)
 
         if (storage) {
           storage.setItem(statePath, serialize(resolvedValue))
         }
-
-        prevValueRef.current = resolvedValue
-      }
+      }, [
+        statePath,
+        storage,
+        serialize,
+        onSet,
+      ])
       
-      const resetValue = () => {
-        const resolvedValue = defaultValue ?? superDefaultValue
+      const resetValue = useCallback(() => {
+        const resolvedValue = defaultValue
         
         if (!isValueDefined(resolvedValue)) {
           storage?.removeItem(statePath)
           return
         }
 
-        ctx.setStateVocab(embed(statePath, resolvedValue))
+        vocabStore.set(statePath, resolvedValue)
         onSet(resolvedValue, prevValueRef.current)
-        prevValueRef.current = resolvedValue
 
         if (storage) {
           storage.setItem(statePath, serialize(resolvedValue))
         }
-      }
+      }, [
+        statePath,
+        defaultValue,
+        storage,
+        serialize,
+        onSet,
+      ])
+
       return [
         value,
         setValue,
         resetValue,
       ] as const
     },
-    
+
     /** Returns the fully qualified job name (dot-separated path). */
     toString(this: { [STATE_PATH]: string }) {
       return this[STATE_PATH];
