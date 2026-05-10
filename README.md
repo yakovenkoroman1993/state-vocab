@@ -188,6 +188,7 @@ Wraps a nested object of `defineState()` nodes and injects dot-separated paths i
 | Option | Type | Description | Default |
 |---|---|---|---|
 | `verbose` | `boolean \| undefined` | Log current state to the browser console on every change | `false` |
+| `ssr` | `boolean \| undefined` | Defer storage reads until after hydration (Next.js / SSR) | `false` |
 
 ```ts
 const storage = setupStorage({
@@ -206,6 +207,25 @@ Enable verbose logging during development:
 ```ts
 const storage = setupStorage({ ... }, { verbose: true })
 ```
+
+### SSR / Next.js
+
+When using localStorage or sessionStorage in a Next.js app, the server renders with `defaultValue` while the client reads the persisted value — causing a hydration mismatch. Pass `ssr: true` to fix this:
+
+```ts
+// lib/storage.ts
+const storage = setupStorage({
+  preference: {
+    theme: defineState<Theme>({ storage: localStorage, defaultValue: 'Dark' }),
+  },
+}, { ssr: true })
+```
+
+With `ssr: true`:
+- **Server & first client render** — always use `defaultValue`, storage is not read
+- **After hydration** — `useLayoutEffect` fires synchronously before paint, reads storage and updates state
+
+This guarantees the server and client produce identical markup, and the value from storage is applied without a visible flash.
 
 ## `useState` Hook
 
@@ -389,6 +409,7 @@ createRoot(document.getElementById('root')!).render(<Page />)
 | Option | Type | Default |
 |---|---|---|
 | `verbose` | `boolean \| undefined` | `false` |
+| `ssr` | `boolean \| undefined` | `false` |
 
 Returns a proxied copy of `tree` with paths injected into all leaf nodes.
 

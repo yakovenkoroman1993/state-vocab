@@ -1,5 +1,5 @@
-import {  useCallback, useEffect, useEffectEvent, useRef, useSyncExternalStore } from "react";
-import { STATE_DEFINITION, STATE_PATH, STATE_VERBOSE } from "./constants";
+import {  useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE } from "./constants";
 import { get, set, logStyled, useDebounce } from "./utils";
 import { isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from "./state.types";
@@ -7,6 +7,10 @@ import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from 
 type Vocab<T = unknown> = Record<string, T | null>
 
 type Listener = () => void
+
+const isServer = typeof window === "undefined"
+
+const useIsomorphicLayoutEffect = isServer ? useEffect : useLayoutEffect
 
 class VocabStore {
   #vocab: Vocab
@@ -26,13 +30,15 @@ class VocabStore {
   getServerSnapshot<V>() {
     return this.#vocab as Vocab<V>;
   }
+  get<V>(statePath: string) {
+    return get(this.#vocab, statePath) as V | undefined
+  }
   set<V>(statePath: string, value: ValueOrTransformer<V>) {
     const currentValue = get(this.#vocab, statePath) as V
     
     const resolvedValue = isTransformer(value)
       ? value(currentValue)
       : value
-    
     
     const nextVocab = { ...this.#vocab }
     // Embedding value: D into "a.b.c.d" => { a: { b: { c: { d: value } } } }
@@ -55,15 +61,32 @@ export function defineState<D>(
 ) {
   const vocabStore = new VocabStore()
 
+  const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
+  const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
+
+  const sync = (statePath: string, storage: Storage, value: D | undefined) => {
+    const serialized = storage.getItem(statePath)
+
+    if (serialized === null) {
+      if (isValueDefined(value)) {
+        storage.setItem(statePath, serialize(value))
+      }
+    } else { 
+      vocabStore.set(statePath, deserialize(serialized))
+    }
+  }
+
   return {
     [STATE_DEFINITION]: true,   // marks this object as a leaf in the router tree
     [STATE_PATH]: "",           // placeholder; injected at runtime by injectPaths()
     [STATE_VERBOSE]: false,     // placeholder
+    [STATE_SSR]: false,         // placeholder
 
     useState(
       this: {
         [STATE_PATH]: string;
         [STATE_VERBOSE]: boolean;
+        [STATE_SSR]: boolean;
       },
       options?: {
         defaultValue?: ValueOrFactory<D>,
@@ -72,10 +95,7 @@ export function defineState<D>(
         onSet?(nextValue: NoInfer<D>, prevValue: NoInfer<D>): void
       }
     ) {
-      const storage = valueOrFactory(definitionOptions.storage)
-      const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
-      const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
-
+      const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
       const superDefaultValue = valueOrFactory(definitionOptions.defaultValue)
       const superBidirectional = definitionOptions.bidirectional
 
@@ -92,6 +112,7 @@ export function defineState<D>(
 
       const statePath = this[STATE_PATH];
       const verbose = this[STATE_VERBOSE];
+      const ssr = this[STATE_SSR];
 
       const prevValueRef = useRef<D>(undefined as D)
 
@@ -99,46 +120,41 @@ export function defineState<D>(
       if (!initializedRef.current) {
         initializedRef.current = true
 
-        let initialValue = get(vocabStore.getServerSnapshot(), statePath) as D | undefined
+        let initialValue = vocabStore.get<D>(statePath)
 
         if (!isValueDefined(initialValue)) {
-
           initialValue = defaultValue
-
-          if (storage) {
-            const serialized = storage.getItem(statePath)
-
-            if (serialized === null) {
-              if (isValueDefined(initialValue)) {
-                storage.setItem(statePath, serialize(initialValue))
-              }
-            } else { 
-              initialValue = deserialize(serialized)
-            }
-          }
 
           if (isValueDefined(initialValue)) {
             vocabStore.set(statePath, initialValue)
           }
         }
+
+        if (!ssr && storage) {
+          sync(statePath, storage, initialValue)
+        }
       }
 
       const vocab = useSyncExternalStore<Vocab<D>>(
         vocabStore.subscribe.bind(vocabStore),
-        () => vocabStore.getClientSnapshot(),
-        () => {
-          // TODO: ! SSR
-          return vocabStore.getServerSnapshot()
-        }
+        vocabStore.getClientSnapshot.bind(vocabStore),
+        vocabStore.getServerSnapshot.bind(vocabStore),
       )
 
       if (verbose) {
         logStyled(vocab)
       }
 
-
-      const value = get(vocab, statePath) as D
+      const value = get(vocab, statePath, defaultValue) as D
       prevValueRef.current = value
+
+      useIsomorphicLayoutEffect(() => {
+        if (!ssr || !storage) {
+          return
+        }
+
+        sync(statePath, storage, value)
+      }, [])
 
       const handleStorageChange = useEffectEvent((event: StorageEvent) => {
         if (event.key !== statePath) {

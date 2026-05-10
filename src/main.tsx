@@ -106,7 +106,7 @@ const storage = setupStorage({
     }),
   }
 }, {
-  // ssr: true
+  ssr: true,
   verbose: true,
 })
 

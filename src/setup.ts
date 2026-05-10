@@ -1,37 +1,42 @@
-import { STATE_DEFINITION, STATE_PATH, STATE_VERBOSE } from "./constants";
-
-const proxyCache = new WeakMap<object, Map<string, object>>()
-const leafCache = new WeakMap<object, Map<string, object>>()
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE } from "./constants";
 
 type InjectPathsOptions = {
   path: string
   verbose: boolean
+  ssr: boolean
 }
+
 /**
  * Recursively traverses a router object and injects the current path (STATE_PATH)
  * into every leaf node of the tree.
  *
- * @param router - Nested object representing a route/state hierarchy
- * @param path   - Accumulated dot-separated path from the root to the current node (e.g. "queue.email.send")
+ * @param router  - Nested object representing a route/state hierarchy
+ * @param path    - Accumulated dot-separated path from the root to the current node (e.g. "queue.email.send")
  * @param verbose - enable verbose logs
+ * @param ssr     - SSR supporting
  * @returns A Proxy over the router with paths automatically injected into leaf nodes
  */
 function injectPaths<T extends object>(
   router: T,
-  options?: Partial<InjectPathsOptions>
+  options: Partial<InjectPathsOptions> & {
+    cache: {
+      proxy: WeakMap<object, Map<string, object>>
+      leaf: WeakMap<object, Map<string, object>>
+    }
+  }
 ): T {
-  options ??= {}
-
   const {
     path = "",
     verbose,
+    ssr,
+    cache
   } = options
 
-  let pathCache = proxyCache.get(router)
+  let pathCache = cache.proxy.get(router)
   
   if (!pathCache) {
     pathCache = new Map()
-    proxyCache.set(router, pathCache)
+    cache.proxy.set(router, pathCache)
   }
 
   const cached = pathCache.get(path)
@@ -51,10 +56,10 @@ function injectPaths<T extends object>(
       if (value && typeof value === "object" && STATE_DEFINITION in value) {
         const leaf = value as Record<string, (...args: unknown[]) => unknown>;
 
-        let leafPathCache = leafCache.get(leaf)
+        let leafPathCache = cache.leaf.get(leaf)
         if (!leafPathCache) {
           leafPathCache = new Map()
-          leafCache.set(leaf, leafPathCache)
+          cache.leaf.set(leaf, leafPathCache)
         }
 
         const cachedLeaf = leafPathCache.get(statePath)
@@ -77,6 +82,7 @@ function injectPaths<T extends object>(
                   ...leaf,
                   [STATE_PATH]: statePath,
                   [STATE_VERBOSE]: verbose,
+                  [STATE_SSR]: ssr,
                 },
                 ...args
               ),
@@ -94,8 +100,8 @@ function injectPaths<T extends object>(
       // Intermediate node — recurse deeper, accumulating the path
       if (value && typeof value === "object") {
         return injectPaths(value, {
+          ...options,
           path: statePath,
-          verbose,
         });
       }
 
@@ -113,5 +119,11 @@ export function setupStorage<T extends object>(
   native: T,
   options?: Partial<Omit<InjectPathsOptions, "path">>
 ): T {
-  return injectPaths(native, options);
+  return injectPaths(native, {
+    ...options,
+    cache: {
+      proxy: new WeakMap<object, Map<string, object>>(),
+      leaf: new WeakMap<object, Map<string, object>>(),
+    }
+  })
 }

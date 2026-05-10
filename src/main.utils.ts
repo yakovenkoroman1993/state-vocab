@@ -10,7 +10,7 @@ export const toLocalDatetimeString = (date: Date | null) => {
 
 export const toDateString = (date: Date | null) => {
   if (!date) {
-    return
+    return ""
   }
 
   const offset = date.getTimezoneOffset() * 60000

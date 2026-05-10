@@ -1,6 +1,6 @@
 
 import { renderToString } from "react-dom/server";
-import { createRoot, hydrateRoot } from "react-dom/client";
+import { hydrateRoot } from "react-dom/client";
 import { act } from "react";
 import { setupStorage } from "../setup";
 import { defineState } from "../state";
@@ -10,6 +10,8 @@ const storage = setupStorage({
   preference: {
     theme: defineState<string>({ storage: () => localStorage, defaultValue: "Dark" }),
   },
+}, {
+  ssr: true
 })
 
 const MyComponent = () => {
@@ -54,32 +56,4 @@ test("ssr/client hydration match", async () => {
   expect(errors).toHaveLength(0);
   spy.mockRestore();
   container.remove();
-});
-
-test("ssr html matches client html", async () => {
-  // 1. SSR snapshot
-  const ssrHtml = renderToString(<MyComponent />);
-
-  localStorage.setItem("preference.theme", "\"White\""); 
-  // 2. Чистый клиентский рендер
-  const clientContainer = document.createElement("div");
-  document.body.appendChild(clientContainer);
-
-  await act(async () => {
-    createRoot(clientContainer).render(<MyComponent />);
-  });
-
-  const clientHtml = clientContainer.innerHTML;
-
-  // 3. Нормализуем и сравниваем
-  // React добавляет свои атрибуты при гидрации, поэтому сравниваем текст
-  const normalize = (html: string) =>
-    html
-      .replace(/<!--[\s\S]*?-->/g, "")          // убираем React-комментарии
-      .replace(/\s+/g, " ")                      // нормализуем пробелы
-      .trim();
-
-  expect(normalize(clientHtml)).toBe(normalize(ssrHtml));
-
-  clientContainer.remove();
 });
