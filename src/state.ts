@@ -129,7 +129,9 @@ export function defineState<D>(
       if (!initializedRef.current) {
         initializedRef.current = true
 
-        let initialValue = vocabStore.get<D>(statePath)
+        let initialValue = isServer
+          ? undefined
+          : vocabStore.get<D>(statePath)
 
         if (!isValueDefined(initialValue)) {
           initialValue = defaultValue

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.4] - 2025-05-22
+
+### Fixed
+- SSR state leak between requests — `vocabStore` is no longer read on the server during initialization. Each server render now always starts from `defaultValue`, preventing state from a previous request bleeding into the next one.
+
+---
+
 ## [3.0.3] - 2025-05-22
 
 ### Added
