@@ -1,8 +1,17 @@
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE } from "./constants";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 
-type InjectPathsOptions = {
+type Path<T, Prefix extends string = ""> = {
+  [K in keyof T & string]: T[K] extends object
+    ? T[K] extends { [STATE_DEFINITION]: unknown }
+      ? `${Prefix}${K}` 
+      : `${Prefix}${K}` | Path<T[K], `${Prefix}${K}.`>
+    : `${Prefix}${K}`
+}[keyof T & string];
+
+type InjectPathsOptions<T extends object> = {
   path: string
   verbose: boolean
+  verbosePath: Path<T>
   ssr: boolean
 }
 
@@ -10,15 +19,17 @@ type InjectPathsOptions = {
  * Recursively traverses a router object and injects the current path (STATE_PATH)
  * into every leaf node of the tree.
  *
- * @param router  - Nested object representing a route/state hierarchy
- * @param path    - Accumulated dot-separated path from the root to the current node (e.g. "queue.email.send")
- * @param verbose - enable verbose logs
- * @param ssr     - SSR supporting
+ * @param router      - Nested object representing a route/state hierarchy
+ * @param path        - Accumulated dot-separated path from the root to the current node (e.g. "queue.email.send")
+ * @param verbose     - enable verbose logs
+ * @param verbosePath - dot-separated path clarification
+ * @param ssr         - SSR supporting
  * @returns A Proxy over the router with paths automatically injected into leaf nodes
  */
 function injectPaths<T extends object>(
   router: T,
-  options: Partial<InjectPathsOptions> & {
+  options: Partial<Omit<InjectPathsOptions<T>, "verbosePath">> & {
+    verbosePath: string
     cache: {
       proxy: WeakMap<object, Map<string, object>>
       leaf: WeakMap<object, Map<string, object>>
@@ -28,6 +39,7 @@ function injectPaths<T extends object>(
   const {
     path = "",
     verbose,
+    verbosePath,
     ssr,
     cache
   } = options
@@ -82,6 +94,7 @@ function injectPaths<T extends object>(
                   ...leaf,
                   [STATE_PATH]: statePath,
                   [STATE_VERBOSE]: verbose,
+                  [STATE_VERBOSE_PATH]: verbosePath,
                   [STATE_SSR]: ssr,
                 },
                 ...args
@@ -117,10 +130,11 @@ function injectPaths<T extends object>(
 
 export function setupStorage<T extends object>(
   native: T,
-  options?: Partial<Omit<InjectPathsOptions, "path">>
+  options?: Partial<Omit<InjectPathsOptions<T>, "path">>
 ): T {
   return injectPaths(native, {
     ...options,
+    verbosePath: options?.verbosePath ?? "",
     cache: {
       proxy: new WeakMap<object, Map<string, object>>(),
       leaf: new WeakMap<object, Map<string, object>>(),

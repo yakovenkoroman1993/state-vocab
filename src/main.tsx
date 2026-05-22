@@ -108,6 +108,7 @@ const storage = setupStorage({
 }, {
   ssr: true,
   verbose: true,
+  // verbosePath: "demo.pageProps"
 })
 
 const debouncedSetItem = debounce(async (key: string, value: string) => {

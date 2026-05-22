@@ -188,6 +188,7 @@ Wraps a nested object of `defineState()` nodes and injects dot-separated paths i
 | Option | Type | Description | Default |
 |---|---|---|---|
 | `verbose` | `boolean \| undefined` | Log current state to the browser console on every change | `false` |
+| `verbosePath` | `string \| undefined` | Narrow verbose logging to a specific subtree (dot-separated path). When set, only that subtree is logged instead of the entire state. TypeScript will autocomplete valid paths based on your tree. | `undefined` |
 | `ssr` | `boolean \| undefined` | Defer storage reads until after hydration (Next.js / SSR) | `false` |
 
 ```ts
@@ -207,6 +208,25 @@ Enable verbose logging during development:
 ```ts
 const storage = setupStorage({ ... }, { verbose: true })
 ```
+
+Narrow verbose logging to a specific subtree:
+
+```ts
+const storage = setupStorage({
+  user: {
+    profile: defineState({ ... }),
+    settings: defineState({ ... }),
+  },
+  cart: {
+    items: defineState({ ... }),
+  },
+}, {
+  verbose: true,
+  verbosePath: "user", // only logs changes inside "user.*"
+})
+```
+
+TypeScript will only accept paths that exist in your tree — `"user"`, `"user.profile"`, `"cart.items"`, etc. Invalid paths are caught at compile time.
 
 ### SSR / Next.js
 
@@ -409,6 +429,7 @@ createRoot(document.getElementById('root')!).render(<Page />)
 | Option | Type | Default |
 |---|---|---|
 | `verbose` | `boolean \| undefined` | `false` |
+| `verbosePath` | `Path<T> \| undefined` | `undefined` |
 | `ssr` | `boolean \| undefined` | `false` |
 
 Returns a proxied copy of `tree` with paths injected into all leaf nodes.
@@ -422,4 +443,4 @@ Returns a proxied copy of `tree` with paths injected into all leaf nodes.
 | `onSet` | `(next: T, prev: T) => void \| undefined` | Callback after state change |
 | `bidirectional` | `true \| undefined` | Sync state across browser tabs |
 
-Returns `[value, setValue, resetValue]`.
+Returns `[value, setValue, resetValue]`

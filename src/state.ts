@@ -1,5 +1,5 @@
 import {  useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSyncExternalStore } from "react";
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE } from "./constants";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import { get, set, logStyled, useDebounce } from "./utils";
 import { isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer } from "./state.types";
@@ -12,6 +12,9 @@ const isServer = typeof window === "undefined"
 
 const useIsomorphicLayoutEffect = isServer ? useEffect : useLayoutEffect
 
+/***
+ * https://react.dev/reference/react/useSyncExternalStore
+ */
 class VocabStore {
   #vocab: Vocab
   #listeners: Set<Listener>
@@ -41,7 +44,9 @@ class VocabStore {
       : value
     
     const nextVocab = { ...this.#vocab }
-    // Embedding value: D into "a.b.c.d" => { a: { b: { c: { d: value } } } }
+
+    // Embedding value: 
+    // V into "a.b.c.d" => { a: { b: { c: { d: value } } } }
     set(nextVocab, statePath, resolvedValue)
 
     this.#vocab = nextVocab
@@ -49,6 +54,7 @@ class VocabStore {
   }
 }
 
+// TODO: ! Storage Prefix STATE_PREFIX
 // TODO: ! SUPPORT ASYNC STORAGE
 export function defineState<D>(
   definitionOptions: {
@@ -77,15 +83,17 @@ export function defineState<D>(
   }
 
   return {
-    [STATE_DEFINITION]: true,   // marks this object as a leaf in the router tree
-    [STATE_PATH]: "",           // placeholder; injected at runtime by injectPaths()
-    [STATE_VERBOSE]: false,     // placeholder
-    [STATE_SSR]: false,         // placeholder
+    [STATE_DEFINITION]: true,         // marks this object as a leaf in the router tree
+    [STATE_PATH]: "",                 // placeholder; injected at runtime by injectPaths()
+    [STATE_VERBOSE]: false,           // placeholder
+    [STATE_VERBOSE_PATH]: "",         // placeholder
+    [STATE_SSR]: false,               // placeholder
 
     useState(
       this: {
         [STATE_PATH]: string;
         [STATE_VERBOSE]: boolean;
+        [STATE_VERBOSE_PATH]: string;
         [STATE_SSR]: boolean;
       },
       options?: {
@@ -112,6 +120,7 @@ export function defineState<D>(
 
       const statePath = this[STATE_PATH];
       const verbose = this[STATE_VERBOSE];
+      const verbosePath = this[STATE_VERBOSE_PATH];
       const ssr = this[STATE_SSR];
 
       const prevValueRef = useRef<D>(undefined as D)
@@ -142,7 +151,14 @@ export function defineState<D>(
       )
 
       if (verbose) {
-        logStyled(vocab)
+        if (verbosePath) {
+          const target = get(vocab, verbosePath)
+          if (target) {
+            logStyled(target)
+          }
+        } else {
+          logStyled(vocab)
+        }
       }
 
       const value = get(vocab, statePath, defaultValue) as D
@@ -195,12 +211,7 @@ export function defineState<D>(
         if (storage) {
           storage.setItem(statePath, serialize(resolvedValue))
         }
-      }, [
-        statePath,
-        storage,
-        serialize,
-        onSet,
-      ])
+      }, [statePath, storage, onSet])
       
       const resetValue = useCallback(() => {
         const resolvedValue = defaultValue
@@ -216,13 +227,7 @@ export function defineState<D>(
         if (storage) {
           storage.setItem(statePath, serialize(resolvedValue))
         }
-      }, [
-        statePath,
-        defaultValue,
-        storage,
-        serialize,
-        onSet,
-      ])
+      }, [statePath, defaultValue, storage, onSet])
 
       return [
         value,
