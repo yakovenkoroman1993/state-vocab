@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { get, set } from "./utils";
 import type { ValueOrTransformer, Vocab } from "./state.types";
 import { isTransformer } from "./state.utils";
@@ -47,23 +46,45 @@ class VocabStore {
   }
 }
 
-const createStore = () => {
-  return new VocabStore()
-};
+declare class AsyncLocalStorage<T> {
+  run<R>(store: T, fn: () => R): R;
+  getStore(): T | undefined;
+}
 
-const getServerStore = cache(createStore);
+let requestStorage: AsyncLocalStorage<VocabStore>
+if (typeof window === "undefined") {
+  requestStorage = new AsyncLocalStorage<VocabStore>();
+}
+
+const getServerStore = () => {
+  const store = requestStorage.getStore();
+  
+  if (!store) {
+    throw new Error(`${VocabStore.name} must be initialized for this request`);
+  }
+
+  return store;
+};
 
 let clientStore: VocabStore | null = null;
 
 const getClientStore = () => {
   if (!clientStore) {
-    clientStore = createStore();
+    clientStore = new VocabStore()
   }
 
   return clientStore;
 };
 
+export function runWithStateVocab<T>(fn: () => T) {
+  return requestStorage.run(new VocabStore(), fn)
+}
+
 export const getVocabStore = () => {
-  return typeof window === "undefined" ? getServerStore() : getClientStore()
+  if (typeof window === "undefined") {
+    return getServerStore()
+  }
+  
+  return getClientStore()
 }
   

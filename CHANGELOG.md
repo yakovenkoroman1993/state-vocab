@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.6] - 2025-05-28
+
+### Changed
+- Replaced `react.cache` with `AsyncLocalStorage` for server-side store management.
+- `runWithStateVocab()` exported from `store.ts` — callers must wrap their request handler to initialize the per-request store.
+- `getServerStore()` now throws if called outside of a `runWithStateVocab()` context.
+
 ## [3.0.5] - 2025-05-28
 
 ### Changed
