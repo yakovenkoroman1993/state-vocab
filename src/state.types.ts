@@ -6,3 +6,5 @@ export type ValueOrTransformer<V> = V | Transformer<V>
 
 export type Factory<V> = () => V
 export type ValueOrFactory<V> = V | Factory<V>
+
+export type Vocab<T = unknown> = Record<string, T | null>

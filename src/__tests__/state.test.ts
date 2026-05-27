@@ -20,39 +20,39 @@ function renderState<T>(
 
 describe('defineState — базовое поведение', () => {
   it('возвращает defaultValue из useState при отсутствии хранилища', () => {
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 42)
+    const storage = setupStorage({ val1: defineState<number>() })
+    const { result } = renderState(storage.val1, 42)
     expect(result.current[0]).toBe(42)
   })
 
   it('setState обновляет значение', () => {
-    const storage = setupStorage({ val: defineState<string>() })
-    const { result } = renderState(storage.val, 'initial')
+    const storage = setupStorage({ val2: defineState<string>() })
+    const { result } = renderState(storage.val2, 'initial')
 
     act(() => result.current[1]('updated'))
     expect(result.current[0]).toBe('updated')
   })
 
   it('setState с функцией-апдейтером', () => {
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 10)
+    const storage = setupStorage({ val3: defineState<number>() })
+    const { result } = renderState(storage.val3, 10)
 
     act(() => result.current[1]((prev: number) => prev + 5))
     expect(result.current[0]).toBe(15)
   })
   
   it('инициализация стэйта и setState в другом месте', () => {
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 10)
-    const { result: result2 } = renderState(storage.val)
+    const storage = setupStorage({ val4: defineState<number>() })
+    const { result } = renderState(storage.val4, 10)
+    const { result: result2 } = renderState(storage.val4)
 
     act(() => result2.current[1]((prev: number) => prev + 5))
     expect(result.current[0]).toBe(15)
   })
 
   it('resetState возвращает к defaultValue', () => {
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 0)
+    const storage = setupStorage({ val5: defineState<number>() })
+    const { result } = renderState(storage.val5, 0)
 
     act(() => result.current[1](99))
     expect(result.current[0]).toBe(99)
@@ -62,14 +62,14 @@ describe('defineState — базовое поведение', () => {
   })
 
   it('superDefaultValue из defineState используется как fallback', () => {
-    const storage = setupStorage({ val: defineState<string>({ defaultValue: 'super' }) })
-    const { result } = renderState(storage.val)
+    const storage = setupStorage({ val6: defineState<string>({ defaultValue: 'super' }) })
+    const { result } = renderState(storage.val6)
     expect(result.current[0]).toBe('super')
   })
 
   it('defaultValue из useState перекрывает superDefaultValue', () => {
-    const storage = setupStorage({ val: defineState<string>({ defaultValue: 'super' }) })
-    const { result } = renderState(storage.val, 'local')
+    const storage = setupStorage({ val7: defineState<string>({ defaultValue: 'super' }) })
+    const { result } = renderState(storage.val7, 'local')
     expect(result.current[0]).toBe('local')
   })
 
@@ -197,8 +197,8 @@ describe('defineState — onSet callback', () => {
 
   it('вызывает onSet при setState', () => {
     const onSet = vi.fn()
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 0, { onSet })
+    const storage = setupStorage({ val8: defineState<number>() })
+    const { result } = renderState(storage.val8, 0, { onSet })
 
     act(() => result.current[1](5))
     vi.runAllTimers()
@@ -207,8 +207,8 @@ describe('defineState — onSet callback', () => {
 
   it('передаёт prevValue корректно', () => {
     const onSet = vi.fn()
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 10, { onSet })
+    const storage = setupStorage({ val9: defineState<number>() })
+    const { result } = renderState(storage.val9, 10, { onSet })
 
     act(() => result.current[1](20))
     vi.runAllTimers()
@@ -221,8 +221,8 @@ describe('defineState — onSet callback', () => {
 
   it('debounce — откладывает вызов onSet', () => {
     const onSet = vi.fn()
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 0, { onSet, delayedSet: 300 })
+    const storage = setupStorage({ val10: defineState<number>() })
+    const { result } = renderState(storage.val10, 0, { onSet, delayedSet: 300 })
 
     act(() => result.current[1](1))
     act(() => result.current[1](2))
@@ -236,8 +236,8 @@ describe('defineState — onSet callback', () => {
 
   it('onSet вызывается при resetState', () => {
     const onSet = vi.fn()
-    const storage = setupStorage({ val: defineState<number>() })
-    const { result } = renderState(storage.val, 0, { onSet })
+    const storage = setupStorage({ val11: defineState<number>() })
+    const { result } = renderState(storage.val11, 0, { onSet })
 
     act(() => result.current[1](42))
     vi.runAllTimers()
@@ -302,13 +302,13 @@ describe('defineState — bidirectional', () => {
 
   it('не слушает StorageEvent если bidirectional не указан', () => {
     const storage = setupStorage({
-      val: defineState<string>({ storage: localStorage })
+      val12: defineState<string>({ storage: localStorage })
     })
-    const { result } = renderState(storage.val, 'original')
+    const { result } = renderState(storage.val12, 'original')
 
     act(() => {
       window.dispatchEvent(new StorageEvent('storage', {
-        key: 'val',
+        key: 'val12',
         newValue: '"changed"',
       }))
     })

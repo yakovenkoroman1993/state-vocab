@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.5] - 2025-05-28
+
+### Changed
+- Extracted `VocabStore` class out of `state.ts` into a dedicated `store.ts` module.
+- `getVocabStore()` now handles store lifecycle: per-request singleton on the server via `react.cache`, module-level singleton on the client.
+- `serialize` / `deserialize` / `sync` moved inside `useState()` hook call — scoped to the hook, access `vocabStore` via `getVocabStore()`.
+- `Vocab` type moved to `state.types.ts`.
+
+### Fixed
+- SSR state leak between requests — `vocabStore` is now isolated per request via `react.cache`, preventing state from one request bleeding into the next.
+- Removed `isServer` guard on `vocabStore.get()` during initialization — no longer necessary since server-side store isolation is handled at the store level.
+- Cross-test state leakage — renamed shared `val` state paths to unique keys (`val1`–`val12`) in the test suite to prevent state bleeding between test cases through the shared store.
+
 ## [3.0.4] - 2025-05-22
 
 ### Fixed
