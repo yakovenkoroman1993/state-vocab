@@ -51,13 +51,18 @@ declare class AsyncLocalStorage<T> {
   getStore(): T | undefined;
 }
 
-let requestStorage: AsyncLocalStorage<VocabStore>
+const storageKey = Symbol.for("request-state-vocab-storage");
+
+const Global = globalThis as {
+  [storageKey]?: AsyncLocalStorage<VocabStore>;
+};
+  
 if (typeof window === "undefined") {
-  requestStorage = new AsyncLocalStorage<VocabStore>();
+  Global[storageKey] ??= new AsyncLocalStorage<VocabStore>();
 }
 
 const getServerStore = () => {
-  const store = requestStorage.getStore();
+  const store = Global[storageKey]?.getStore();
   
   if (!store) {
     throw new Error(`${VocabStore.name} must be initialized for this request`);
@@ -77,14 +82,14 @@ const getClientStore = () => {
 };
 
 export function runWithStateVocab<T>(fn: () => T) {
-  return requestStorage.run(new VocabStore(), fn)
+  return Global[storageKey]?.run(new VocabStore(), fn)
 }
 
 export const getVocabStore = () => {
   if (typeof window === "undefined") {
     return getServerStore()
   }
-  
+
   return getClientStore()
 }
   
