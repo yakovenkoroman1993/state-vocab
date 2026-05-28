@@ -103,7 +103,7 @@ defineState({
 })
 ```
 
-**Minimal API surface.** Two exports: `defineState`, `setupStorage`. No actions, reducers, selectors, or stores to configure.
+**Minimal API surface.** Three exports: `defineState`, `setupStorage`, `VocabStateProvider`. No actions, reducers, selectors, or stores to configure.
 
 ## Installation
 
@@ -115,8 +115,13 @@ npm install @yakocloud/state-vocab react react-dom
 
 ## Quick Start
 
+Wrap your app with `VocabStateProvider` at the root — this initializes an isolated store for the component tree. Then define and use state anywhere inside it.
+Library SSR-requirements:
+- `Per-request store`: A Next.js server can handle multiple requests simultaneously. This means that the store should be created per request and should not be shared across requests.
+- `SSR friendly`: Next.js applications are rendered twice, first on the server and again on the client. Having different outputs on both the client and the server will result in "hydration errors." The store will have to be initialized on the server and then re-initialized on the client with the same data in order to avoid that.
+
 ```tsx
-import { setupStorage, defineState } from '@yakocloud/state-vocab'
+import { setupStorage, defineState, VocabStateProvider } from '@yakocloud/state-vocab'
 
 type Theme = 'Dark' | 'White' | 'System'
 
@@ -131,6 +136,14 @@ const storage = setupStorage({
   },
 })
 
+function App() {
+  return (
+    <VocabStateProvider>
+      <Settings />
+    </VocabStateProvider>
+  )
+}
+
 function Settings() {
   const [theme, setTheme] = storage.path.to.theme.useState()
 
@@ -142,6 +155,38 @@ function Settings() {
     </select>
   )
 }
+```
+
+## Setup
+
+### `VocabStateProvider`
+
+All components that call `.useState()` must be descendants of `VocabStateProvider`. It creates an isolated `VocabStore` instance for its subtree — multiple providers can coexist in the same app without sharing state.
+
+```tsx
+import { VocabStateProvider } from '@yakocloud/state-vocab'
+
+// Wrap your app root
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <VocabStateProvider>
+      <App />
+    </VocabStateProvider>
+  </React.StrictMode>
+)
+```
+
+You can mount multiple independent providers — each gets its own store:
+
+```tsx
+// Two isolated state trees — state does not bleed between them
+<VocabStateProvider>
+  <WidgetA />
+</VocabStateProvider>
+
+<VocabStateProvider>
+  <WidgetB />
+</VocabStateProvider>
 ```
 
 ## Core Concepts
@@ -247,6 +292,8 @@ With `ssr: true`:
 
 This guarantees the server and client produce identical markup, and the value from storage is applied without a visible flash.
 
+Wrap your page or app root with `VocabStateProvider` as usual — it works correctly in both SSR and client environments.
+
 ## `useState` Hook
 
 Each state node exposes a `.useState()` method that works like React's built-in `useState` but adds persistence and callbacks.
@@ -325,7 +372,9 @@ const storage = setupStorage({
 ## Full Example
 
 ```tsx
-import { setupStorage, defineState } from '@yakocloud/state-vocab'
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import { setupStorage, defineState, VocabStateProvider } from '@yakocloud/state-vocab'
 
 type Theme = 'Dark' | 'White' | 'System'
 
@@ -409,7 +458,13 @@ function Dashboard() {
   )
 }
 
-createRoot(document.getElementById('root')!).render(<Page />)
+createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <VocabStateProvider>
+      <Page />
+    </VocabStateProvider>
+  </React.StrictMode>
+)
 ```
 
 ## API Reference
@@ -433,6 +488,16 @@ createRoot(document.getElementById('root')!).render(<Page />)
 | `ssr` | `boolean \| undefined` | `false` |
 
 Returns a proxied copy of `tree` with paths injected into all leaf nodes.
+
+### `VocabStateProvider`
+
+A React context provider that initializes a `VocabStore` for its subtree. Required — all components calling `.useState()` must be descendants of this provider.
+
+```tsx
+<VocabStateProvider>
+  <App />
+</VocabStateProvider>
+```
 
 ### `node.useState(options?)`
 

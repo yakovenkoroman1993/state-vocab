@@ -9,8 +9,6 @@ const isServer = typeof window === "undefined"
 
 const useIsomorphicLayoutEffect = isServer ? useEffect : useLayoutEffect
 
-
-// TODO: ! Storage Prefix STATE_PREFIX
 // TODO: ! SUPPORT ASYNC STORAGE
 export function defineState<D>(
   definitionOptions: {
@@ -57,7 +55,7 @@ export function defineState<D>(
       const verbosePath = this[STATE_VERBOSE_PATH];
       const ssr = this[STATE_SSR];
 
-      const vocabStore = useVocabStoreContext()
+      const vocabStore = useVocabStoreContext({ verbose })
 
       const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
       const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse

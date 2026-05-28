@@ -3,8 +3,18 @@ import VocabStore from "./store";
 
 const VocabStoreContext = createContext({} as VocabStore)
 
-export function useVocabStoreContext() {
-  return useContext<VocabStore>(VocabStoreContext)
+export function useVocabStoreContext(
+  options: {
+    verbose?: boolean
+  } = {}
+) {
+  const context = useContext<VocabStore>(VocabStoreContext)
+
+  if (options.verbose) {
+    console.log(`[${useVocabStoreContext.name}]: `, context.uid)
+  }
+  
+  return context
 }
 
 export function VocabStoreContextProvider({ children }: PropsWithChildren) {
