@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, act } from "@testing-library/react"
 import { defineState } from "../state"
 import { setupStorage } from "../setup"
+import React from "react"
+import { VocabStoreContextProvider } from "../context"
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+function makeWrapper() {
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(VocabStoreContextProvider, null, children)
+}
 
 function renderState<T>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,6 +20,7 @@ function renderState<T>(
 ) {
   return renderHook(
     () => stateNode.useState({ ...options, defaultValue }),
+    { wrapper: makeWrapper() }
   )
 }
 
@@ -43,11 +51,27 @@ describe('defineState — базовое поведение', () => {
   
   it('инициализация стэйта и setState в другом месте', () => {
     const storage = setupStorage({ val4: defineState<number>() })
-    const { result } = renderState(storage.val4, 10)
-    const { result: result2 } = renderState(storage.val4)
+    const { result } = renderHook(
+      () => ({
+        a: storage.val4.useState({
+          defaultValue: 10
+        }),
+        b: storage.val4.useState(),
+      }),
+      { wrapper: makeWrapper() }
+    )
 
-    act(() => result2.current[1]((prev: number) => prev + 5))
-    expect(result.current[0]).toBe(15)
+    act(() => result.current.b[1]((prev: number) => prev + 5))
+    expect(result.current.a[0]).toBe(15)
+    expect(result.current.b[0]).toBe(15)
+    
+    act(() => result.current.a[1]((prev: number) => prev + 5))
+    expect(result.current.a[0]).toBe(20)
+    expect(result.current.b[0]).toBe(20)
+    
+    act(() => result.current.b[1]((prev: number) => prev + 5))
+    expect(result.current.a[0]).toBe(25)
+    expect(result.current.b[0]).toBe(25)
   })
 
   it('resetState возвращает к defaultValue', () => {
@@ -357,6 +381,7 @@ describe('defineState — синхронизация через контекст
           defaultValue: 0
         }),
       }),
+      { wrapper: makeWrapper() }
     )
 
     act(() => result.current.a[1](42))
@@ -383,7 +408,10 @@ describe('defineState — известные проблемы', () => {
     const { result, rerender } = renderHook(
       ({ cb }: { cb: (n: number, p: number) => void }) =>
         storage.v.useState({ defaultValue: 0, onSet: cb }),
-      { initialProps: { cb: first } }
+      {
+        initialProps: { cb: first },
+        wrapper: makeWrapper(),
+      }
     )
 
     rerender({ cb: second })

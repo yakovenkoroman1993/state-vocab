@@ -5,6 +5,7 @@ import { act } from "react";
 import { setupStorage } from "../setup";
 import { defineState } from "../state";
 import { vi } from "vitest";
+import { VocabStoreContextProvider } from "../context";
 
 const storage = setupStorage({
   preference: {
@@ -33,7 +34,11 @@ beforeEach(() => {
 
 test("ssr/client hydration match", async () => {
   // 1. SSR
-  const ssrHtml = renderToString(<MyComponent />);
+  const ssrHtml = renderToString(
+    <VocabStoreContextProvider>
+      <MyComponent />
+    </VocabStoreContextProvider>
+  );
 
   localStorage.setItem("preference.theme", "\"White\""); 
   // 2. put SSR into DOM
@@ -50,7 +55,12 @@ test("ssr/client hydration match", async () => {
   });
 
   await act(async () => {
-    hydrateRoot(container, <MyComponent />);
+    hydrateRoot(
+      container,
+      <VocabStoreContextProvider>
+        <MyComponent />
+      </VocabStoreContextProvider>
+    );
   });
 
   expect(errors).toHaveLength(0);

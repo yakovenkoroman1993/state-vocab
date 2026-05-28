@@ -4,6 +4,7 @@ import { setupStorage } from './setup'
 import { defineState } from './state'
 import { debounce, isJsonValid } from './utils'
 import { toDateString, toLocalDatetimeString } from './main.utils'
+import { VocabStoreContextProvider } from './context'
 
 type Theme = "Dark" | "White" | "System"
 
@@ -327,11 +328,13 @@ function DeepInside() {
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Test />
-    <br />
-    <br />
-    <br />
-    <br />
-    <Test />
+    <VocabStoreContextProvider>
+      <Test />
+      <br />
+      <br />
+      <br />
+      <br />
+      <Test />
+    </VocabStoreContextProvider>
   </React.StrictMode>,
 )

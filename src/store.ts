@@ -7,11 +7,13 @@ type Listener = () => void
 /***
  * https://react.dev/reference/react/useSyncExternalStore
  */
-class VocabStore {
+export default class VocabStore {
+  uid: string
   #vocab: Vocab
   #listeners: Set<Listener>
 
   constructor() {
+    this.uid = Math.random().toString(36).slice(2)
     this.#vocab = {}
     this.#listeners = new Set<Listener>()
   }
@@ -46,50 +48,51 @@ class VocabStore {
   }
 }
 
-declare class AsyncLocalStorage<T> {
-  run<R>(store: T, fn: () => R): R;
-  getStore(): T | undefined;
-}
+// TODO: ! Remove it
+// declare class AsyncLocalStorage<T> {
+//   run<R>(store: T, fn: () => R): R;
+//   getStore(): T | undefined;
+// }
 
-const storageKey = Symbol.for("request-state-vocab-storage");
+// const storageKey = Symbol.for("request-state-vocab-storage");
 
-const Global = globalThis as {
-  [storageKey]?: AsyncLocalStorage<VocabStore>;
-};
+// const Global = globalThis as {
+//   [storageKey]?: AsyncLocalStorage<VocabStore>;
+// };
   
-if (typeof window === "undefined") {
-  Global[storageKey] ??= new AsyncLocalStorage<VocabStore>();
-}
+// if (typeof window === "undefined") {
+//   Global[storageKey] ??= new AsyncLocalStorage<VocabStore>();
+// }
 
-const getServerStore = () => {
-  const store = Global[storageKey]?.getStore();
+// const getServerStore = () => {
+//   const store = Global[storageKey]?.getStore();
   
-  if (!store) {
-    throw new Error(`${VocabStore.name} must be initialized for this request`);
-  }
+//   if (!store) {
+//     throw new Error(`${VocabStore.name} must be initialized for this request`);
+//   }
 
-  return store;
-};
+//   return store;
+// };
 
-let clientStore: VocabStore | null = null;
+// let clientStore: VocabStore | null = null;
 
-const getClientStore = () => {
-  if (!clientStore) {
-    clientStore = new VocabStore()
-  }
+// const getClientStore = () => {
+//   if (!clientStore) {
+//     clientStore = new VocabStore()
+//   }
 
-  return clientStore;
-};
+//   return clientStore;
+// };
 
-export function runWithStateVocab<T>(fn: () => T) {
-  return Global[storageKey]?.run(new VocabStore(), fn)
-}
+// export function runWithStateVocab<T>(fn: () => T) {
+//   return Global[storageKey]?.run(new VocabStore(), fn)
+// }
 
-export const getVocabStore = () => {
-  if (typeof window === "undefined") {
-    return getServerStore()
-  }
+// export const getVocabStore = () => {
+//   if (typeof window === "undefined") {
+//     return getServerStore()
+//   }
 
-  return getClientStore()
-}
+//   return getClientStore()
+// }
   

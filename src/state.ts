@@ -3,8 +3,7 @@ import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_P
 import { get, logStyled, useDebounce } from "./utils";
 import { isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer, Vocab } from "./state.types";
-import { getVocabStore } from "./store";
-
+import { useVocabStoreContext } from "./context";
 
 const isServer = typeof window === "undefined"
 
@@ -58,7 +57,7 @@ export function defineState<D>(
       const verbosePath = this[STATE_VERBOSE_PATH];
       const ssr = this[STATE_SSR];
 
-      const vocabStore = getVocabStore()
+      const vocabStore = useVocabStoreContext()
 
       const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
       const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
