@@ -3,6 +3,9 @@ import VocabStore from "./store";
 
 const VocabStoreContext = createContext({} as VocabStore)
 
+/**
+ * @see method from from https://zustand.docs.pmnd.rs/learn/guides/nextjs
+ */
 export function useVocabStoreContext(
   options: {
     verbose?: boolean
@@ -11,7 +14,7 @@ export function useVocabStoreContext(
   const context = useContext<VocabStore>(VocabStoreContext)
 
   if (options.verbose) {
-    console.log(`[${useVocabStoreContext.name}]: `, context.uid)
+    console.log(`[Store uid]: ${context.uid}`)
   }
   
   return context

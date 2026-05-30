@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.5] - 2026-05-29
+
+### Changed
+
+- `VocabStore` instance check added to `useState` — throws a clear error (`"Make sure your component is wrapped in VocabStateProvider"`) when called outside a provider
+
+## [3.1.4] - 2026-05-29
+
+### Added
+- `useInitialState` method on state definitions — initializes state without subscribing the caller component to re-renders
+
+## [3.1.3] - 2026-05-29
+
+### Added
+- `VocabStateProvider` — React context provider that creates an isolated `VocabStore` for its subtree; all components calling `.useState()` must be its descendants
+- `verbose` option in `useVocabStoreContext` — logs store UID when enabled
+- README: documented `VocabStateProvider` setup, SSR requirements, and multiple isolated provider trees
+
+### Changed
+- `useVocabStoreContext` now accepts an `options` object (`{ verbose?: boolean }`)
+
+### Removed
+- Dead commented-out `AsyncLocalStorage`-based server store code from `store.ts`
+- Stale `TODO` comment in `state.ts`
+
+## [3.1.2] - 2026-05-29
+
+### Added
+- `VocabStoreContextProvider` (exported as `VocabStateProvider`) — React context provider that creates an isolated `VocabStore` per subtree via `useMemo`
+- `VocabStore.uid` — random identifier for debug/verbose purposes
+- `useVocabStoreContext` hook for consuming the store from context
+
+### Changed
+- Store access in `useState` switched from global `getVocabStore()` to `useVocabStoreContext()` — store is now scoped to the nearest provider instead of being a singleton
+- `runWithStateVocab` removed from public exports; replaced by `VocabStateProvider`
+- `VocabStore` is now exported as `default`
+- Tests updated to wrap hooks in `VocabStoreContextProvider` via a `makeWrapper` helper; cross-hook state sharing test rewritten to use a single `renderHook` call so both hooks share the same provider instance
+
+### Removed
+- `runWithStateVocab` and `getVocabStore` (global singleton / `AsyncLocalStorage`-based server store approach)
+
 ## [3.0.6] - 2025-05-28
 
 ### Changed

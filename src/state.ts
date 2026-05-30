@@ -4,6 +4,7 @@ import { get, logStyled, useDebounce } from "./utils";
 import { isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer, Vocab } from "./state.types";
 import { useVocabStoreContext } from "./context";
+import VocabStore from "./store";
 
 const isServer = typeof window === "undefined"
 
@@ -56,6 +57,10 @@ export function defineState<D>(
       const ssr = this[STATE_SSR];
 
       const vocabStore = useVocabStoreContext({ verbose })
+
+      if (!(vocabStore instanceof VocabStore)) {
+        throw new Error("Make sure your component is wrapped in VocabStateProvider")
+      } 
 
       const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
       const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
@@ -166,7 +171,7 @@ export function defineState<D>(
         if (storage) {
           storage.setItem(statePath, serialize(resolvedValue))
         }
-      }, [statePath, storage, onSet])
+      }, [vocabStore, statePath, onSet, storage, serialize])
       
       const resetValue = useCallback(() => {
         const resolvedValue = defaultValue
@@ -182,13 +187,78 @@ export function defineState<D>(
         if (storage) {
           storage.setItem(statePath, serialize(resolvedValue))
         }
-      }, [statePath, defaultValue, storage, onSet])
+      }, [defaultValue, vocabStore, statePath, onSet, storage, serialize])
 
       return [
         value,
         setValue,
         resetValue,
       ] as const
+    },
+    
+    useInitialState(
+      this: {
+        [STATE_PATH]: string;
+        [STATE_VERBOSE]: boolean;
+        [STATE_SSR]: boolean;
+      },
+      options: {
+        defaultValue: ValueOrFactory<D>,
+      }
+    ) {
+      const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
+
+      const defaultValue = valueOrFactory(options.defaultValue)
+
+      const statePath = this[STATE_PATH];
+      const verbose = this[STATE_VERBOSE];
+      const ssr = this[STATE_SSR];
+
+      const vocabStore = useVocabStoreContext({ verbose })
+
+      const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
+      const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
+
+      const sync = (statePath: string, storage: Storage, value: D | undefined) => {
+        const serialized = storage.getItem(statePath)
+
+        if (serialized === null) {
+          if (isValueDefined(value)) {
+            storage.setItem(statePath, serialize(value))
+          }
+        } else { 
+          vocabStore.set(statePath, deserialize(serialized))
+        }
+      }
+
+      const initializedRef = useRef(false)
+      
+      let initialValue: D | undefined
+      if (!initializedRef.current) {
+        initializedRef.current = true
+
+        initialValue = vocabStore.get<D>(statePath)
+
+        if (!isValueDefined(initialValue)) {
+          initialValue = defaultValue
+
+          if (isValueDefined(initialValue)) {
+            vocabStore.set(statePath, initialValue)
+          }
+        }
+
+        if (!ssr && storage) {
+          sync(statePath, storage, initialValue)
+        }
+      }
+
+      useIsomorphicLayoutEffect(() => {
+        if (!ssr || !storage) {
+          return
+        }
+
+        sync(statePath, storage, initialValue)
+      }, [])
     },
 
     /** Returns the fully qualified job name (dot-separated path). */

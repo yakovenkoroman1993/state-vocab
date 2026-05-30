@@ -509,3 +509,22 @@ A React context provider that initializes a `VocabStore` for its subtree. Requir
 | `bidirectional` | `true \| undefined` | Sync state across browser tabs |
 
 Returns `[value, setValue, resetValue]`
+
+### `node.useInitialState(options)`
+
+Initializes state without subscribing the caller component to re-renders. Use at layout or root components that only need to seed a value — not react to its changes.
+
+| Option | Type | Description |
+|---|---|---|
+| `defaultValue` | `T \| (() => T)` | Value to seed. Required. |
+
+```tsx
+function Page() {
+  // Seeds the value — this component will NOT re-render when pageProps changes
+  storage.demo.pageProps.useInitialState({
+    defaultValue: { title: 'Hello', count: 42 },
+  })
+
+  return <Dashboard />
+}
+```
