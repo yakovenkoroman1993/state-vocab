@@ -1,3 +1,5 @@
+"use client"
+
 import { createContext, type PropsWithChildren, useContext, useMemo } from "react";
 import VocabStore from "./store";
 

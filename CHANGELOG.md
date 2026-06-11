@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.6] - 2026-06-11
+
+### Fixed
+- `"use client"` directive now emitted at the top of the bundle — prevents `createContext is not a function` error when the library is imported by a Next.js React Server Component
+
 ## [3.1.5] - 2026-05-29
 
 ### Changed
