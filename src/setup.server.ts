@@ -43,28 +43,13 @@ type Serverified<R> =
   R extends Slot<infer TValue>
     ? Placeholder<TValue>
     : R extends object
-      ? ((input: ServerifiedValue<R>) => Vocab) & { [K in keyof R]: Serverified<R[K]> }
+      ? { set(input: ServerifiedValue<R>): Vocab } & { [K in keyof R]: Serverified<R[K]> }
       : R
 
 type ServerifyResult<R extends object> =
-  ((input: ServerifiedValue<R>) => Vocab) & {
+  { set(input: ServerifiedValue<R>): Vocab } & {
     [K in keyof R]: Serverified<R[K]>
   }
-
-function callable<T extends object>(
-  fn: (input: Record<string, unknown>) => unknown,
-  props: T
-): T {
-  return new Proxy(fn, {
-    get(target, prop, receiver) {
-      if (prop in props) return Reflect.get(props, prop, receiver)
-      return Reflect.get(target, prop, receiver)
-    },
-    has(target, prop) {
-      return prop in props || prop in target
-    },
-  }) as T
-}
 
 function isSlot(value: unknown): value is Slot<unknown> {
   return (
@@ -98,17 +83,15 @@ function serverifyInner<R extends object>(
       typeof value === "object"
     ) {
       const childWrap = (x: Record<string, unknown>) => wrap({ [key]: x })
-      const serverified = serverifyInner(value, childWrap)
-      result[key] = callable(
-        (input) => childWrap(input),
-        serverified
-      )
+      result[key] = serverifyInner(value, childWrap)
     } else {
       result[key] = value
     }
   }
 
-  return callable((input) => wrap(input as Record<string, unknown>), result) as ServerifyResult<R>
+  result.set = (input: Record<string, unknown>) => wrap(input)
+
+  return result as ServerifyResult<R>
 }
 
 export function serverify<R extends object>(tree: R): ServerifyResult<R> {

@@ -17,11 +17,11 @@ All notable changes to this project will be documented in this file.
   // Server Component
   const name = serverStorage.user.name.getState()
   ```
-- **Namespace callable syntax on serverified storage** — every intermediate namespace node is now callable. Calling it returns the input wrapped under its full ancestor path, ready to pass to `StateVocabProvider`'s `value` prop:
+- **`.set()` on serverified namespaces** — every namespace node (including the root) exposes a `.set()` method that returns the input wrapped under its full ancestor path, ready to pass to `StateVocabProvider`'s `value` prop:
   ```ts
-  serverStorage({ user: { name: 'Alice' } })        // → { user: { name: 'Alice' } }
-  serverStorage.user({ name: 'Alice', role: 'Admin' }) // → { user: { name: 'Alice', role: 'Admin' } }
-  serverStorage.person.address({ city: 'NY' })      // → { person: { address: { city: 'NY' } } }
+  serverStorage.set({ user: { name: 'Alice' } })           // → { user: { name: 'Alice' } }
+  serverStorage.user.set({ name: 'Alice', role: 'Admin' }) // → { user: { name: 'Alice', role: 'Admin' } }
+  serverStorage.person.address.set({ city: 'NY' })         // → { person: { address: { city: 'NY' } } }
   ```
 - **`StateVocabProvider` `value` prop** — accepts an optional initial vocab object to pre-seed the store with server-fetched data. Values are available immediately to both server and client components inside the provider.
 - **`clientify(storage)`** — converts a storage tree into its client-side counterpart. Each leaf gains `.useState()` and `.useInitialState()`. Replaces `setupClientStorage`.

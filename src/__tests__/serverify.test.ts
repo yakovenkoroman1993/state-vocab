@@ -20,31 +20,31 @@ const serverStorage = serverify(storage)
 // ─── namespace callables ──────────────────────────────────────────────────────
 
 describe('serverify — namespace callables', () => {
-  it('flat namespace call wraps input under its key', () => {
-    expect(serverStorage.user({ name: 'Alice', role: 'Admin' })).toEqual({
+  it('flat namespace set wraps input under its key', () => {
+    expect(serverStorage.user.set({ name: 'Alice', role: 'Admin' })).toEqual({
       user: { name: 'Alice', role: 'Admin' },
     })
   })
 
-  it('nested namespace call wraps input under the full ancestor path', () => {
-    expect(serverStorage.person.address({ city: 'NY' })).toEqual({
+  it('nested namespace set wraps input under the full ancestor path', () => {
+    expect(serverStorage.person.address.set({ city: 'NY' })).toEqual({
       person: { address: { city: 'NY' } },
     })
   })
 
-  it('intermediate namespace call wraps input one level up', () => {
-    expect(serverStorage.person({ address: { city: 'NY' } })).toEqual({
+  it('intermediate namespace set wraps input one level up', () => {
+    expect(serverStorage.person.set({ address: { city: 'NY' } })).toEqual({
       person: { address: { city: 'NY' } },
     })
   })
 
-  it('root call returns input unchanged (identity)', () => {
+  it('root set returns input unchanged (identity)', () => {
     const value = { user: { name: 'Bob', role: 'User' } }
-    expect(serverStorage(value)).toEqual(value)
+    expect(serverStorage.set(value)).toEqual(value)
   })
 
-  it('root call accepts partial input', () => {
-    expect(serverStorage({ user: { name: 'Alice' } })).toEqual({
+  it('root set accepts partial input', () => {
+    expect(serverStorage.set({ user: { name: 'Alice' } })).toEqual({
       user: { name: 'Alice' },
     })
   })
@@ -66,9 +66,9 @@ describe('serverify — namespace callables', () => {
 // ─── field named "name" does not conflict with Function.name ─────────────────
 
 describe('serverify — reserved property name "name"', () => {
-  it('namespace with a field named "name" still callable', () => {
+  it('namespace with a field named "name" still has set()', () => {
     const s = serverify(setupStorage({ ns: { name: defineState<string>() } }))
-    expect(s.ns({ name: 'Test' })).toEqual({ ns: { name: 'Test' } })
+    expect(s.ns.set({ name: 'Test' })).toEqual({ ns: { name: 'Test' } })
   })
 
   it('leaf named "name" is accessible as a property', () => {

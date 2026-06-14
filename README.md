@@ -359,7 +359,7 @@ export default async function Page() {
 
   return (
     <StateVocabProvider
-      value={serverStorage({
+      value={serverStorage.set({
         user: { name: user.name, role: user.role },
         person: { address: { city: user.city } },
       })}
@@ -398,21 +398,21 @@ export default function UserInfoClient() {
 
 #### `serverify(storage)`
 
-Converts a storage tree into its server-side counterpart. Each leaf gains a `.getState()` method that reads the value seeded into the nearest `StateVocabProvider`. All namespace nodes become callable functions that build the `value` shape expected by `StateVocabProvider`.
+Converts a storage tree into its server-side counterpart. Each leaf gains a `.getState()` method that reads the value seeded into the nearest `StateVocabProvider`. Each namespace node (including the root) gains a `.set()` method that returns the input wrapped under its full ancestor path, ready for `StateVocabProvider`'s `value` prop.
 
-**Namespace callable syntax:**
+**`.set()` syntax:**
 
 ```ts
-// Full tree at once — root call is identity (returns input as-is)
-serverStorage({ user: { name: 'Alice', role: 'Admin' } })
+// Full tree at once — root .set() returns input as-is
+serverStorage.set({ user: { name: 'Alice', role: 'Admin' } })
 // → { user: { name: 'Alice', role: 'Admin' } }
 
 // Single namespace — wraps input under its key
-serverStorage.user({ name: 'Alice', role: 'Admin' })
+serverStorage.user.set({ name: 'Alice', role: 'Admin' })
 // → { user: { name: 'Alice', role: 'Admin' } }
 
 // Nested namespace — wraps up to the root
-serverStorage.person.address({ city: 'NY' })
+serverStorage.person.address.set({ city: 'NY' })
 // → { person: { address: { city: 'NY' } } }
 ```
 
@@ -421,8 +421,8 @@ All three forms return a value ready to pass as `StateVocabProvider`'s `value` p
 ```tsx
 <StateVocabProvider
   value={{
-    ...serverStorage.user({ name: 'Alice', role: 'Admin' }),
-    ...serverStorage.person.address({ city: 'NY' }),
+    ...serverStorage.user.set({ name: 'Alice', role: 'Admin' }),
+    ...serverStorage.person.address.set({ city: 'NY' }),
   }}
 >
 ```
@@ -649,7 +649,7 @@ A React context provider that initializes a `VocabStore` for its subtree. Requir
 Accepts an optional `value` prop (imported from `@yakocloud/state-vocab/server` in RSC contexts) to pre-seed the store with server-fetched data:
 
 ```tsx
-<StateVocabProvider value={serverStorage({ user: { name: 'Alice' } })}>
+<StateVocabProvider value={serverStorage.set({ user: { name: 'Alice' } })}>
   <App />
 </StateVocabProvider>
 ```
@@ -658,16 +658,16 @@ Accepts an optional `value` prop (imported from `@yakocloud/state-vocab/server` 
 
 Converts a storage tree to its server-side counterpart. Available from `@yakocloud/state-vocab/server`.
 
-Each leaf gains `.getState()` — reads the value from the nearest `StateVocabProvider`. Each namespace node becomes callable, returning the input wrapped under its full ancestor path (ready for `StateVocabProvider`'s `value` prop).
+Each leaf gains `.getState()` — reads the value from the nearest `StateVocabProvider`. Each namespace node gains `.set()`, which returns the input wrapped under its full ancestor path (ready for `StateVocabProvider`'s `value` prop).
 
 ```ts
 import { serverify } from '@yakocloud/state-vocab/server'
 const serverStorage = serverify(storage)
 
-serverStorage.user.name.getState()           // reads "user.name" from context
-serverStorage.user({ name: 'Alice' })        // → { user: { name: 'Alice' } }
-serverStorage.person.address({ city: 'NY' }) // → { person: { address: { city: 'NY' } } }
-serverStorage({ user: { name: 'Alice' } })   // → { user: { name: 'Alice' } } (identity)
+serverStorage.user.name.getState()                  // reads "user.name" from context
+serverStorage.user.set({ name: 'Alice' })           // → { user: { name: 'Alice' } }
+serverStorage.person.address.set({ city: 'NY' })    // → { person: { address: { city: 'NY' } } }
+serverStorage.set({ user: { name: 'Alice' } })      // → { user: { name: 'Alice' } } (identity)
 ```
 
 ### `clientify<T>(storage: T)`

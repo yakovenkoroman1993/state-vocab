@@ -9,7 +9,7 @@ export default async function Home() {
       <p>Values set via <code>getState</code> on the server:</p>
 
       <StateVocabProvider
-        value={serverStorage({
+        value={serverStorage.set({
           user: {
             name: "Name",
             role: "Role",
