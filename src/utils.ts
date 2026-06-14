@@ -1,4 +1,4 @@
-import { useMemo, type DependencyList } from "react";
+import type { Factory, ValueOrFactory, Transformer, ValueOrTransformer } from "./state.types";
 
 export function get<
   T,
@@ -72,18 +72,6 @@ export function debounce<T extends (...args: never[]) => unknown>(
   };
 }
 
-export function useDebounce<T extends (...args: never[]) => unknown>(
-  effect: T,
-  wait: number | undefined,
-  deps: DependencyList = []
-) {
-  return useMemo(
-    () => debounce<T>(effect, wait),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    deps
-  );
-}
-
 export const isJsonValid = (input: string) => {
   try {
     JSON.parse(input)
@@ -115,4 +103,20 @@ export function logStyled(obj: unknown) {
   }
 
   console.log(parts.join('\n'), ...styles, obj)
+}
+
+export const isTransformer = <V>(v: ValueOrTransformer<V>): v is Transformer<V> => {
+  return typeof v === "function";
+}
+
+const isFactory = <V>(v: ValueOrFactory<V>): v is Factory<V> => {
+  return typeof v === "function";
+}
+
+export const isValueDefined = <V>(v: V | undefined): v is V => {
+  return typeof v !== "undefined"
+}
+
+export const valueOrFactory = <V>(input: ValueOrFactory<V>) => {
+  return isFactory(input) ? input() : input
 }

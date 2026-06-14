@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.0] - 2026-06-14
+
+### Added
+
+- **React Server Components support** — two new package entry points, each tree-shaken independently:
+  - `@yakocloud/state-vocab/server` — `serverify`, `StateVocabProvider`
+  - `@yakocloud/state-vocab/client` — `clientify`
+- **`serverify(storage)`** — converts a storage tree into its server-side counterpart. Each leaf gains `.getState()` which reads the value injected by the nearest `StateVocabProvider`. Typical usage:
+  ```ts
+  // storage.server.ts
+  export const serverStorage = serverify(storage)
+
+  // Server Component
+  const name = serverStorage.user.name.getState()
+  ```
+- **Namespace callable syntax on serverified storage** — every intermediate namespace node is now callable. Calling it returns the input wrapped under its full ancestor path, ready to pass to `StateVocabProvider`'s `value` prop:
+  ```ts
+  serverStorage({ user: { name: 'Alice' } })        // → { user: { name: 'Alice' } }
+  serverStorage.user({ name: 'Alice', role: 'Admin' }) // → { user: { name: 'Alice', role: 'Admin' } }
+  serverStorage.person.address({ city: 'NY' })      // → { person: { address: { city: 'NY' } } }
+  ```
+- **`StateVocabProvider` `value` prop** — accepts an optional initial vocab object to pre-seed the store with server-fetched data. Values are available immediately to both server and client components inside the provider.
+- **`clientify(storage)`** — converts a storage tree into its client-side counterpart. Each leaf gains `.useState()` and `.useInitialState()`. Replaces `setupClientStorage`.
+- **Per-request server store isolation** — server-side store is isolated per request using React context backed by `AsyncLocalStorage`, preventing state from one concurrent request bleeding into another.
+
+### Changed
+
+- `defineState` no longer includes `.useState()` directly. Call `clientify(storage)` from `@yakocloud/state-vocab/client` to attach React hooks to all leaf nodes before using them in components.
+- `StateVocabProvider` is available from `@yakocloud/state-vocab/client` (SPA / client-only apps) and `@yakocloud/state-vocab/server` (RSC / Next.js App Router). It is **not** exported from the main `@yakocloud/state-vocab` entry.
+
+---
+
 ## [3.1.6] - 2026-06-11
 
 ### Fixed
@@ -11,7 +43,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- `VocabStore` instance check added to `useState` — throws a clear error (`"Make sure your component is wrapped in VocabStateProvider"`) when called outside a provider
+- `VocabStore` instance check added to `useState` — throws a clear error (`"Make sure your component is wrapped in StateVocabProvider"`) when called outside a provider
 
 ## [3.1.4] - 2026-05-29
 

@@ -1,6 +1,6 @@
 import { get, set } from "./utils";
 import type { ValueOrTransformer, Vocab } from "./state.types";
-import { isTransformer } from "./state.utils";
+import { isTransformer } from "./utils";
 
 type Listener = () => void
 
@@ -12,9 +12,9 @@ export default class VocabStore {
   #vocab: Vocab
   #listeners: Set<Listener>
 
-  constructor() {
+  constructor(value?: Vocab) {
     this.uid = Math.random().toString(36).slice(2)
-    this.#vocab = {}
+    this.#vocab = value ?? {}
     this.#listeners = new Set<Listener>()
   }
   subscribe(listener: Listener) {

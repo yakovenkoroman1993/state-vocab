@@ -1,9 +1,26 @@
 {
   "name": "@yakocloud/state-vocab",
-  "version": "3.1.6",
-  "main": "dist/state-vocab.cjs.js",
-  "module": "dist/state-vocab.es.js",
+  "version": "4.0.0",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.es.js",
   "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs.js"
+    },
+    "./client": {
+      "types": "./dist/types/client.d.ts",
+      "import": "./dist/client.es.js",
+      "require": "./dist/client.cjs.js"
+    },
+    "./server": {
+      "types": "./dist/types/server.d.ts",
+      "import": "./dist/server.es.js",
+      "require": "./dist/server.cjs.js"
+    }
+  },
   "license": "MIT",
   "files": [
     "dist"
@@ -33,7 +50,6 @@
     "url": "https://github.com/yakovenkoroman1993/state-vocab/issues"
   },
   "scripts": {
-    "dev": "vite",
     "build": "tsc --project tsconfig.build.json && vite build ; tsc",
     "lint": "eslint .",
     "type-check": "tsc",
@@ -50,6 +66,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/jest": "^30.0.0",
+    "@types/node": "^25.9.3",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",

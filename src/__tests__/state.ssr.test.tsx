@@ -2,21 +2,20 @@
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import { act } from "react";
+import { clientify } from "../setup.client";
 import { setupStorage } from "../setup";
 import { defineState } from "../state";
 import { vi } from "vitest";
-import { VocabStoreContextProvider } from "../context";
+import { StateVocabProvider } from "../provider";
 
-const storage = setupStorage({
+const clientStorage = clientify(setupStorage({
   preference: {
     theme: defineState<string>({ storage: () => localStorage, defaultValue: "Dark" }),
   },
-}, {
-  ssr: true
-})
+}))
 
 const MyComponent = () => {
-  const [theme, setTheme] = storage.preference.theme.useState()
+  const [theme, setTheme] = clientStorage.preference.theme.useState()
 
   return (
     <div>
@@ -35,9 +34,9 @@ beforeEach(() => {
 test("ssr/client hydration match", async () => {
   // 1. SSR
   const ssrHtml = renderToString(
-    <VocabStoreContextProvider>
+    <StateVocabProvider>
       <MyComponent />
-    </VocabStoreContextProvider>
+    </StateVocabProvider>
   );
 
   localStorage.setItem("preference.theme", "\"White\""); 
@@ -57,9 +56,9 @@ test("ssr/client hydration match", async () => {
   await act(async () => {
     hydrateRoot(
       container,
-      <VocabStoreContextProvider>
+      <StateVocabProvider>
         <MyComponent />
-      </VocabStoreContextProvider>
+      </StateVocabProvider>
     );
   });
 

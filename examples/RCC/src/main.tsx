@@ -1,10 +1,8 @@
-import React, { useId } from 'react'
-import { createRoot } from 'react-dom/client'
-import { setupStorage } from './setup'
-import { defineState } from './state'
-import { debounce, isJsonValid } from './utils'
-import { toDateString, toLocalDatetimeString } from './main.utils'
-import { VocabStoreContextProvider } from './context'
+import React, { useId } from "react"
+import { createRoot } from "react-dom/client"
+import { toDateString, toLocalDatetimeString, debounce, isJsonValid } from "./main.utils"
+import { defineState, setupStorage } from "@yakocloud/state-vocab";
+import { StateVocabProvider, clientify } from "@yakocloud/state-vocab/client";
 
 type Theme = "Dark" | "White" | "System"
 
@@ -21,7 +19,7 @@ function fetchMock(value: unknown) {
   )
 }
 
-const storage = setupStorage({
+const clientStorage = clientify(setupStorage({
   preference: {
     theme: defineState<Theme>({ storage: () => localStorage, defaultValue: "Dark" }),
     nightMode: defineState({ storage: sessionStorage, defaultValue: false }),
@@ -90,8 +88,8 @@ const storage = setupStorage({
         removeItem: function (key: string): void {
           delete db[key]
         },
-        setItem(...args) {
-          debouncedSetItem(...args)
+        setItem(key: string, value: string) {
+          debouncedSetItem(key, value)
         }
       }
     })
@@ -107,10 +105,10 @@ const storage = setupStorage({
     }),
   }
 }, {
-  ssr: true,
   verbose: true,
+  ssr: false,
   // verbosePath: "demo.pageProps"
-})
+}))
 
 const debouncedSetItem = debounce(async (key: string, value: string) => {
   const data = await fetchMock(value)
@@ -118,7 +116,7 @@ const debouncedSetItem = debounce(async (key: string, value: string) => {
 }, 300)
 
 function Test() {
-  storage.demo.pageProps.useState({
+  clientStorage.demo.pageProps.useState({
     defaultValue: {
       a: 1,
       b: 2,
@@ -127,13 +125,13 @@ function Test() {
   });
 
   // literal string
-  const [theme, setTheme] = storage.preference.theme.useState()
+  const [theme, setTheme] = clientStorage.preference.theme.useState()
   
   // boolean
-  const [nightMode, setNightMode] = storage.preference.nightMode.useState()
+  const [nightMode, setNightMode] = clientStorage.preference.nightMode.useState()
   
   // number
-  const [counter, setCounter, resetCounter] = storage.stats.counter.useState({
+  const [counter, setCounter, resetCounter] = clientStorage.stats.counter.useState({
     defaultValue: 0,
     onSet(nextValue, prevValue) {
       setList((prevList) => {
@@ -152,7 +150,7 @@ function Test() {
   })
 
   // string + debounced fetch
-  const [note, setNote] = storage.personal.note.useState({
+  const [note, setNote] = clientStorage.personal.note.useState({
     defaultValue: "",
     delayedSet: 1000,
     onSet: fetchMock,
@@ -160,29 +158,29 @@ function Test() {
   })
 
   // customStorage, string
-  const [db, setDb] = storage.server.db.useState()
+  const [db, setDb] = clientStorage.server.db.useState()
 
   // object
-  const [json, setJson] = storage.json.object.useState({
+  const [json, setJson] = clientStorage.json.object.useState({
     defaultValue: {},
     delayedSet: 1000,
     onSet: fetchMock
   })
 
-  const [objectDraft, setObjectDraft] = storage.json.objectDraft.useState({
+  const [objectDraft, setObjectDraft] = clientStorage.json.objectDraft.useState({
     defaultValue: () => JSON.stringify(json)
   })
 
   // Date
-  const [birthday, setBirthday] = storage.personal.birthday.useState()
+  const [birthday, setBirthday] = clientStorage.personal.birthday.useState()
 
   // Date
-  const [alarm, setAlarm] = storage.personal.alarm.useState({
+  const [alarm, setAlarm] = clientStorage.personal.alarm.useState({
     defaultValue: () => new Date()
   })
 
   // array
-  const [list, setList] = storage.stats.list.useState({
+  const [list, setList] = clientStorage.stats.list.useState({
     defaultValue: []
   })
 
@@ -302,7 +300,7 @@ function Inside() {
 }
 
 function DeepInside() {
-  const [pageProps, setPageProps] = storage.demo.pageProps.useState()
+  const [pageProps, setPageProps] = clientStorage.demo.pageProps.useState()
 
   const gena = () => Math.random().toString().slice(2, 3)
   
@@ -328,13 +326,13 @@ function DeepInside() {
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <VocabStoreContextProvider>
+    <StateVocabProvider>
       <Test />
       <br />
       <br />
       <br />
       <br />
       <Test />
-    </VocabStoreContextProvider>
+    </StateVocabProvider>
   </React.StrictMode>,
 )

@@ -129,11 +129,12 @@ function injectPaths<T extends object>(
 }
 
 export function setupStorage<T extends object>(
-  native: T,
+  tree: T,
   options?: Partial<Omit<InjectPathsOptions<T>, "path">>
 ): T {
-  return injectPaths(native, {
+  return injectPaths(tree, {
     ...options,
+    ssr: options?.ssr ?? true,
     verbosePath: options?.verbosePath ?? "",
     cache: {
       proxy: new WeakMap<object, Map<string, object>>(),

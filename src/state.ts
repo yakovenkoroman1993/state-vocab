@@ -1,26 +1,17 @@
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+// use both client and server
 import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
-import { get, logStyled, useDebounce } from "./utils";
-import { isTransformer, isValueDefined, valueOrFactory } from "./state.utils";
-import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer, Vocab } from "./state.types";
-import { useVocabStoreContext } from "./context";
-import VocabStore from "./store";
+import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer, VocabThis } from "./state.types";
+import { valueOrFactory } from "./utils";
 
-const isServer = typeof window === "undefined"
-
-const useIsomorphicLayoutEffect = isServer ? useEffect : useLayoutEffect
-
-// TODO: ! SUPPORT ASYNC STORAGE
-export function defineState<D>(
-  definitionOptions: {
-    storage?: ValueOrFactory<Storage> // by default memory
-    defaultValue?: ValueOrFactory<D>
+export function defineState<V>(
+  superOptions: {
+    defaultValue?: ValueOrFactory<V>
     bidirectional?: true
-    serialize?: Serialize<D>
-    deserialize?: Deserialize<D>
+    storage?: unknown
+    serialize?: Serialize<V>
+    deserialize?: Deserialize<V>
   } = {}
 ) {
-
   return {
     [STATE_DEFINITION]: true,         // marks this object as a leaf in the router tree
     [STATE_PATH]: "",                 // placeholder; injected at runtime by injectPaths()
@@ -28,240 +19,84 @@ export function defineState<D>(
     [STATE_VERBOSE_PATH]: "",         // placeholder
     [STATE_SSR]: false,               // placeholder
 
-    useState(
-      this: {
-        [STATE_PATH]: string;
-        [STATE_VERBOSE]: boolean;
-        [STATE_VERBOSE_PATH]: string;
-        [STATE_SSR]: boolean;
+    serverSlot(
+      this: VocabThis,
+      input: {
+        // RSC
+        getState(
+          this: VocabThis,
+        ): V
       },
-      options?: {
-        defaultValue?: ValueOrFactory<D>,
-        delayedSet?: number
-        bidirectional?: true
-        onSet?(nextValue: NoInfer<D>, prevValue: NoInfer<D>): void
-      }
     ) {
-      const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
-      const superDefaultValue = valueOrFactory(definitionOptions.defaultValue)
-      const superBidirectional = definitionOptions.bidirectional
-
-      options ??= {}
-
-      const defaultValue = valueOrFactory(options.defaultValue) ?? superDefaultValue
-      const bidirectional = options.bidirectional ?? superBidirectional
-
-      const statePath = this[STATE_PATH];
-      const verbose = this[STATE_VERBOSE];
-      const verbosePath = this[STATE_VERBOSE_PATH];
-      const ssr = this[STATE_SSR];
-
-      const vocabStore = useVocabStoreContext({ verbose })
-
-      if (!(vocabStore instanceof VocabStore)) {
-        throw new Error("Make sure your component is wrapped in VocabStateProvider")
-      } 
-
-      const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
-      const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
-
-      const sync = (statePath: string, storage: Storage, value: D | undefined) => {
-        const serialized = storage.getItem(statePath)
-
-        if (serialized === null) {
-          if (isValueDefined(value)) {
-            storage.setItem(statePath, serialize(value))
-          }
-        } else { 
-          vocabStore.set(statePath, deserialize(serialized))
-        }
-      }
-
-      const onSet = useDebounce(
-        options.onSet ?? (() => {}),
-        options.delayedSet,
-        []
-      )
-
-      const prevValueRef = useRef<D>(undefined as D)
-
-      const initializedRef = useRef(false)
-      if (!initializedRef.current) {
-        initializedRef.current = true
-
-        let initialValue = vocabStore.get<D>(statePath)
-
-        if (!isValueDefined(initialValue)) {
-          initialValue = defaultValue
-
-          if (isValueDefined(initialValue)) {
-            vocabStore.set(statePath, initialValue)
-          }
-        }
-
-        if (!ssr && storage) {
-          sync(statePath, storage, initialValue)
-        }
-      }
-
-      const vocab = useSyncExternalStore<Vocab<D>>(
-        vocabStore.subscribe.bind(vocabStore),
-        vocabStore.getClientSnapshot.bind(vocabStore),
-        vocabStore.getServerSnapshot.bind(vocabStore),
-      )
-
-      if (verbose) {
-        if (verbosePath) {
-          const target = get(vocab, verbosePath)
-          if (target) {
-            logStyled(target)
-          }
-        } else {
-          logStyled(vocab)
-        }
-      }
-
-      const value = get(vocab, statePath, defaultValue) as D
-      prevValueRef.current = value
-
-      useIsomorphicLayoutEffect(() => {
-        if (!ssr || !storage) {
-          return
-        }
-
-        sync(statePath, storage, value)
-      }, [])
-
-      const handleStorageChange = useEffectEvent((event: StorageEvent) => {
-        if (event.key !== statePath) {
-          return
-        }
-
-        const serialized = event.newValue
-        const deserialized = serialized === null ? null : deserialize(serialized)
-        const resolvedValue = deserialized ?? defaultValue
-        
-        if (!isValueDefined(resolvedValue)) {
-          return
-        }
-        
-        vocabStore.set(statePath, resolvedValue)
-
-        onSet(resolvedValue, prevValueRef.current)
-      })
-      
-      useEffect(() => {
-        if (!bidirectional) {
-          return
-        }
-
-        window.addEventListener("storage", handleStorageChange);
-
-        return () => window.removeEventListener("storage", handleStorageChange)
-      }, [bidirectional])
-
-      const setValue = useCallback((nextValue: ValueOrTransformer<D>) => {
-        const resolvedValue = isTransformer(nextValue)
-          ? nextValue(prevValueRef.current)
-          : nextValue
-        
-        vocabStore.set(statePath, resolvedValue)
-        onSet(resolvedValue, prevValueRef.current)
-
-        if (storage) {
-          storage.setItem(statePath, serialize(resolvedValue))
-        }
-      }, [vocabStore, statePath, onSet, storage, serialize])
-      
-      const resetValue = useCallback(() => {
-        const resolvedValue = defaultValue
-        
-        if (!isValueDefined(resolvedValue)) {
-          storage?.removeItem(statePath)
-          return
-        }
-
-        vocabStore.set(statePath, resolvedValue)
-        onSet(resolvedValue, prevValueRef.current)
-
-        if (storage) {
-          storage.setItem(statePath, serialize(resolvedValue))
-        }
-      }, [defaultValue, vocabStore, statePath, onSet, storage, serialize])
-
-      return [
-        value,
-        setValue,
-        resetValue,
-      ] as const
+      return Object.assign(this, {
+        // Impl|RSC
+        getState(...args) {
+          return input.getState.apply(this, args)
+        },
+      } satisfies typeof input)
     },
-    
-    useInitialState(
-      this: {
-        [STATE_PATH]: string;
-        [STATE_VERBOSE]: boolean;
-        [STATE_SSR]: boolean;
+    clientSlot(
+      this: VocabThis,
+      input: {
+        // RCC
+        useState(
+          this: VocabThis,
+          options?: {
+            defaultValue?: ValueOrFactory<V>
+            delayedSet?: number
+            bidirectional?: true
+            onSet?(nextValue: NoInfer<V>, prevValue: NoInfer<V>): void
+            storage?: unknown
+            serialize?: Serialize<V>
+            deserialize?: Deserialize<V>
+          }
+        ): readonly [
+          V, 
+          (v: ValueOrTransformer<V>) => void,
+          () => void,
+        ]
+        
+        // RCC
+        useInitialState(
+          this: VocabThis,
+          options: {
+            defaultValue: ValueOrFactory<V>
+            storage?: unknown
+            serialize?: Serialize<V>
+            deserialize?: Deserialize<V>
+          }
+        ): void
       },
-      options: {
-        defaultValue: ValueOrFactory<D>,
-      }
     ) {
-      const storage = isServer ? undefined : valueOrFactory(definitionOptions.storage)
-
-      const defaultValue = valueOrFactory(options.defaultValue)
-
-      const statePath = this[STATE_PATH];
-      const verbose = this[STATE_VERBOSE];
-      const ssr = this[STATE_SSR];
-
-      const vocabStore = useVocabStoreContext({ verbose })
-
-      const serialize: Serialize<D> = definitionOptions.serialize ?? JSON.stringify
-      const deserialize: Deserialize<D> = definitionOptions.deserialize ?? JSON.parse
-
-      const sync = (statePath: string, storage: Storage, value: D | undefined) => {
-        const serialized = storage.getItem(statePath)
-
-        if (serialized === null) {
-          if (isValueDefined(value)) {
-            storage.setItem(statePath, serialize(value))
-          }
-        } else { 
-          vocabStore.set(statePath, deserialize(serialized))
-        }
-      }
-
-      const initializedRef = useRef(false)
-      
-      let initialValue: D | undefined
-      if (!initializedRef.current) {
-        initializedRef.current = true
-
-        initialValue = vocabStore.get<D>(statePath)
-
-        if (!isValueDefined(initialValue)) {
-          initialValue = defaultValue
-
-          if (isValueDefined(initialValue)) {
-            vocabStore.set(statePath, initialValue)
-          }
-        }
-
-        if (!ssr && storage) {
-          sync(statePath, storage, initialValue)
-        }
-      }
-
-      useIsomorphicLayoutEffect(() => {
-        if (!ssr || !storage) {
-          return
-        }
-
-        sync(statePath, storage, initialValue)
-      }, [])
+      return Object.assign(this, {
+        // Impl|RCC
+        useState(options) {
+          options ??= {}
+          return input.useState.apply(this, [{
+            defaultValue: valueOrFactory(options.defaultValue) ?? valueOrFactory(superOptions.defaultValue),
+            bidirectional: options.bidirectional ?? superOptions.bidirectional,
+            storage: options.storage ?? superOptions.storage,
+            serialize: superOptions.serialize ?? JSON.stringify,
+            deserialize: superOptions.deserialize ?? JSON.parse,
+            delayedSet: options.delayedSet,
+            onSet(...args) {
+              if (options.onSet) options.onSet(...args)
+            }
+          }])
+        },
+        // Impl|RCC
+        useInitialState(options) {
+          input.useInitialState.apply(this, [{
+            defaultValue: options.defaultValue,
+            storage: superOptions.storage,
+            serialize: superOptions.serialize,
+            deserialize: superOptions.deserialize,
+          }])
+        },
+      } satisfies typeof input)
     },
 
-    /** Returns the fully qualified job name (dot-separated path). */
+    /** Returns the fully qualified state name (dot-separated path). */
     toString(this: { [STATE_PATH]: string }) {
       return this[STATE_PATH];
     },
