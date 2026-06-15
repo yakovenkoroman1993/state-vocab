@@ -1,23 +1,24 @@
 "use client"
 
-import { createContext, useContext } from "react";
+import { type Context, createContext, useContext } from "react";
 import VocabStore from "./store";
 
-export const StateVocabClientContext = createContext({} as VocabStore)
+export const DefaultStateVocabClientContext = createContext({} as VocabStore)
 
 /**
  * @see method from from https://zustand.docs.pmnd.rs/learn/guides/nextjs
  */
 export function useStateVocabClientContext(
   options: {
+    clientContext: Context<VocabStore> | undefined
     verbose: boolean
   }
 ) {
-  const context = useContext(StateVocabClientContext)
+  const vocabStore = useContext(options.clientContext ?? DefaultStateVocabClientContext)
 
   if (options.verbose) {
-    console.log(`[Store uid]: ${context.uid}`)
+    console.log(`[Store uid]: ${vocabStore.uid}`)
   }
   
-  return context
+  return vocabStore
 }

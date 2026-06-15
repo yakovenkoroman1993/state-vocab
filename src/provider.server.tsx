@@ -4,8 +4,16 @@ import { StateVocabServerContext } from "./context.server";
 
 export const StateVocabServerProvider: React.FC<PropsWithChildren<{
   value: Vocab
-}>> = ({ value, children }) => (
-  <StateVocabServerContext.Provider value={value}>
-    {children}
-  </StateVocabServerContext.Provider>
-);
+  serverContextKey: symbol
+}>> = (props) => {
+  const { serverContextKey, value, children } = props
+
+  return (
+    <StateVocabServerContext.Provider
+      serverContextKey={serverContextKey}
+      value={value}
+    >
+      {children}
+    </StateVocabServerContext.Provider>
+  )
+};

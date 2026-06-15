@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.0] - 2026-06-16
+
+### Added
+
+- **Multiple independent storage trees on the same page** — each `serverify`/`clientify` pair is now scoped to its own React context, so a `layoutStorage` provider and a `pageStorage` provider can coexist on the same page without their state bleeding into each other. Previously all providers shared the same implicit default context.
+
+### Breaking Changes
+
+- **`serverify` now requires a `clientContext` option** — pass a React context created with `createContext({})` in a `"use client"` file. This links the server and client sides of the same storage tree and enables per-tree context isolation:
+  ```ts
+  // my-storage.context.client.ts ("use client")
+  import { createContext } from "react"
+  export const MyClientContext = createContext({})
+
+  // my-storage.server.ts
+  import { serverify } from "@yakocloud/state-vocab/server"
+  import { MyClientContext } from "./my-storage.context.client"
+  export const serverStorage = serverify(storage, { clientContext: MyClientContext })
+  ```
+
+- **`clientify` now accepts a `clientContext` option** — pass the same context object used in `serverify` so that client hooks read from the correct store:
+  ```ts
+  // my-storage.client.ts ("use client")
+  import { clientify } from "@yakocloud/state-vocab/client"
+  import { MyClientContext } from "./my-storage.context.client"
+  export const clientStorage = clientify(storage, { clientContext: MyClientContext })
+  ```
+
+### Changed
+
+- **Server store isolation now uses `React.cache()` instead of `AsyncLocalStorage`** — the `node:async_hooks` dependency is removed. The per-request server store is backed by a `React.cache()`-scoped `Map<symbol, Vocab>`, keyed by a unique `Symbol` generated internally per `serverify()` call. Behavior is identical from the outside; no migration needed beyond the `clientContext` addition above.
+
+---
+
 ## [4.0.2] - 2026-06-15
 
 ### Added

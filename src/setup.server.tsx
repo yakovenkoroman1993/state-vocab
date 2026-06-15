@@ -1,23 +1,22 @@
-import type { PropsWithChildren, ReactNode } from "react";
-import { STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
+import type { Context, PropsWithChildren, ReactNode } from "react";
+import { STATE_PATH } from "./constants";
 import { getStateVocab } from "./context.server";
 import { StateVocabProvider } from "./provider";
 import type { Vocab, VocabThis } from "./state.types";
 import { get } from "./utils";
+import VocabStore from "./store";
 
 const ERROR_MESSAGE = "Make sure your component is wrapped in StateVocabProvider"
 
 function getState<V>(
-  this: {
-    [STATE_PATH]: string;
-    [STATE_VERBOSE]: boolean;
-    [STATE_VERBOSE_PATH]: string;
-    [STATE_SSR]: boolean;
-  },
+  this: VocabThis,
+  options: {
+    serverContextKey: symbol
+  }
 ): V {
   const statePath = this[STATE_PATH];
 
-  const vocab = getStateVocab()
+  const vocab = getStateVocab(options.serverContextKey)
 
   if (!vocab) {
     throw new Error(ERROR_MESSAGE)
@@ -69,7 +68,10 @@ function isSlot(value: unknown): value is Slot<unknown> {
 
 function serverifyInner<R extends object>(
   tree: R,
-  wrap: (x: Record<string, unknown>) => Record<string, unknown>
+  options: {
+    serverContextKey: symbol
+    wrap: (x: Record<string, unknown>) => Record<string, unknown>
+  }
 ): ServerifyResult<R> {
   const result: Record<string, unknown> = {}
 
@@ -78,9 +80,10 @@ function serverifyInner<R extends object>(
 
     if (isSlot(value)) {
       result[key] = value.serverSlot({
-        // Slot definition
-        getState(this: VocabThis, ...args) {
-          return getState.apply(this, args)
+        getState(this: VocabThis) {
+          return getState.apply(this, [{
+            serverContextKey: options.serverContextKey,
+          }])
         },
       })
 
@@ -90,24 +93,41 @@ function serverifyInner<R extends object>(
       value !== null &&
       typeof value === "object"
     ) {
-      const childWrap = (x: Record<string, unknown>) => wrap({ [key]: x })
-      result[key] = serverifyInner(value, childWrap)
+      const childWrap = (x: Record<string, unknown>) => options.wrap({ [key]: x })
+      result[key] = serverifyInner(value, {
+        serverContextKey: options.serverContextKey,
+        wrap: childWrap,
+      })
     } else {
       result[key] = value
     }
   }
 
-  result.seed = (input: Record<string, unknown>) => wrap(input)
+  result.seed = (input: Record<string, unknown>) => options.wrap(input)
 
   return result as ServerifyResult<R>
 }
 
-export function serverify<R extends object>(tree: R): ServerifyResult<R> {
+export function serverify<R extends object>(
+  tree: R,
+  serverifyOptions: {
+    clientContext: Context<object>
+  }
+): ServerifyResult<R> {
+  const serverContextKey = Symbol()
+
   return {
-    ...serverifyInner(tree, (x) => x),
+    ...serverifyInner(tree, {
+      serverContextKey,
+      wrap: (x) => x,
+    }),
     StateVocabProvider({ children, value }) {
       return (
-        <StateVocabProvider value={value as Vocab}>
+        <StateVocabProvider
+          clientContext={serverifyOptions.clientContext as Context<VocabStore>}
+          serverContextKey={serverContextKey}
+          value={value as Vocab}
+        >
           {children}
         </StateVocabProvider>
       )

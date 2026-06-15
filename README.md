@@ -366,14 +366,28 @@ export const storage = setupStorage({
 })
 ```
 
-**2. Create server and client storage handles:**
+**2. Create a client context, then create server and client storage handles:**
+
+Each storage tree needs its own React context so that multiple independent providers can coexist on the same page without their state bleeding into each other.
+
+```ts
+// storage.context.client.ts  ("use client")
+"use client"
+
+import { createContext } from 'react'
+
+export const StorageClientContext = createContext({})
+```
 
 ```ts
 // storage.server.ts
 import { storage } from '@/storage'
 import { serverify } from '@yakocloud/state-vocab/server'
+import { StorageClientContext } from '@/storage.context.client'
 
-export const serverStorage = serverify(storage)
+export const serverStorage = serverify(storage, {
+  clientContext: StorageClientContext,
+})
 ```
 
 ```ts
@@ -382,8 +396,11 @@ export const serverStorage = serverify(storage)
 
 import { storage } from '@/storage'
 import { clientify } from '@yakocloud/state-vocab/client'
+import { StorageClientContext } from '@/storage.context.client'
 
-export const clientStorage = clientify(storage)
+export const clientStorage = clientify(storage, {
+  clientContext: StorageClientContext,
+})
 ```
 
 **3. Seed initial state in the server component and read it in Server and Client children:**
@@ -436,6 +453,40 @@ export default function UserInfoClient() {
   return <p>{name} — {role}</p>
 }
 ```
+
+#### Multiple independent storage trees
+
+Because each `serverify`/`clientify` pair is bound to its own context, you can have multiple independent providers active at the same time — for example, a layout-level store and a page-level store — without them interfering with each other:
+
+```ts
+// layout.context.client.ts ("use client")
+export const LayoutClientContext = createContext({})
+
+// page.context.client.ts ("use client")
+export const PageClientContext = createContext({})
+
+// layout.storage.server.ts
+export const layoutServerStorage = serverify(layoutStorage, { 
+  clientContext: LayoutClientContext 
+})
+
+// layout.storage.client.ts ("use client")
+export const layoutClientStorage = clientify(layoutStorage, { 
+  clientContext: LayoutClientContext 
+})
+
+// page.storage.server.ts
+export const pageServerStorage = serverify(pageStorage, { 
+  clientContext: PageClientContext 
+})
+
+// page.storage.client.ts ("use client")
+export const pageClientStorage = clientify(pageStorage, { 
+  clientContext: PageClientContext 
+})
+```
+
+Each `StateVocabProvider` wraps its own subtree; a component that calls `pageClientStorage.user.name.useState()` reads only from the nearest `pageServerStorage.StateVocabProvider`, not from the layout provider.
 
 #### `serverify(storage)`
 
@@ -694,15 +745,21 @@ import { StateVocabClientProvider } from '@yakocloud/state-vocab/client'
 </StateVocabClientProvider>
 ```
 
-### `serverify<T>(storage: T)`
+### `serverify<T>(storage: T, options)`
 
 Converts a storage tree to its server-side counterpart. Available from `@yakocloud/state-vocab/server`.
+
+| Option | Type | Description |
+|---|---|---|
+| `clientContext` | `Context<object>` | **Required.** A React context created with `createContext({})` in a `"use client"` file. Must match the `clientContext` passed to `clientify` for the same storage tree. |
 
 Each leaf gains `.getState()` — reads the value from the nearest `StateVocabProvider`. Each namespace node gains `.seed()`, which returns the input wrapped under its full ancestor path. The result also includes `StateVocabProvider` — use it instead of importing from `@yakocloud/state-vocab/server`.
 
 ```ts
 import { serverify } from '@yakocloud/state-vocab/server'
-const serverStorage = serverify(storage)
+import { MyClientContext } from '@/storage.context.client'
+
+const serverStorage = serverify(storage, { clientContext: MyClientContext })
 
 const { StateVocabProvider } = serverStorage        // server-aware provider
 
@@ -712,15 +769,21 @@ serverStorage.person.address.seed({ city: 'NY' })   // → { person: { address: 
 serverStorage.seed({ user: { name: 'Alice' } })     // → { user: { name: 'Alice' } } (identity)
 ```
 
-### `clientify<T>(storage: T)`
+### `clientify<T>(storage: T, options?)`
 
 Converts a storage tree to its client-side counterpart. Available from `@yakocloud/state-vocab/client`.
+
+| Option | Type | Description |
+|---|---|---|
+| `clientContext` | `Context<object> \| undefined` | The React context created with `createContext({})` for this storage tree. Must match the `clientContext` passed to `serverify`. Required when using RSC; omit for SPA-only setups. |
 
 Each leaf gains `.useState()` and `.useInitialState()`. The tree structure mirrors the original.
 
 ```ts
 import { clientify } from '@yakocloud/state-vocab/client'
-const clientStorage = clientify(storage)
+import { MyClientContext } from '@/storage.context.client'
+
+const clientStorage = clientify(storage, { clientContext: MyClientContext })
 
 // In a "use client" component:
 const [name] = clientStorage.user.name.useState()

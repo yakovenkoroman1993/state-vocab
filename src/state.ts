@@ -97,7 +97,7 @@ export function defineState<V>(
     },
 
     /** Returns the fully qualified state name (dot-separated path). */
-    toString(this: { [STATE_PATH]: string }) {
+    toString(this: VocabThis) {
       return this[STATE_PATH];
     },
   };

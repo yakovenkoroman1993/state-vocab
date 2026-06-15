@@ -6,13 +6,15 @@ import { clientify } from "../setup.client";
 import { setupStorage } from "../setup";
 import { defineState } from "../state";
 import { vi } from "vitest";
-import { StateVocabProvider } from "../provider";
+import { StateVocabClientProvider } from "../provider.client";
 
-const clientStorage = clientify(setupStorage({
+const storage = setupStorage({
   preference: {
     theme: defineState<string>({ storage: () => localStorage, defaultValue: "Dark" }),
   },
-}))
+})
+
+const clientStorage = clientify(storage)
 
 const MyComponent = () => {
   const [theme, setTheme] = clientStorage.preference.theme.useState()
@@ -34,9 +36,9 @@ beforeEach(() => {
 test("ssr/client hydration match", async () => {
   // 1. SSR
   const ssrHtml = renderToString(
-    <StateVocabProvider>
+    <StateVocabClientProvider>
       <MyComponent />
-    </StateVocabProvider>
+    </StateVocabClientProvider>
   );
 
   localStorage.setItem("preference.theme", "\"White\""); 
@@ -56,9 +58,9 @@ test("ssr/client hydration match", async () => {
   await act(async () => {
     hydrateRoot(
       container,
-      <StateVocabProvider>
+      <StateVocabClientProvider>
         <MyComponent />
-      </StateVocabProvider>
+      </StateVocabClientProvider>
     );
   });
 

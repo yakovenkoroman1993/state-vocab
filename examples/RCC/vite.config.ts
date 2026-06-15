@@ -13,7 +13,7 @@ export default defineConfig({
       fileName: (format) => `state-vocab.${format}.js`
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'node:async_hooks'],
+      external: ['react', 'react-dom'],
       output: {
         globals: {
           react: 'React',

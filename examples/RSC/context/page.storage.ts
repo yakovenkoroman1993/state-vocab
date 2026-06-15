@@ -1,7 +1,6 @@
-import { defineState } from "@yakocloud/state-vocab"
-import { setupStorage } from "@yakocloud/state-vocab"
+import { setupStorage, defineState } from "@yakocloud/state-vocab"
 
-export const storage = setupStorage({
+export const pageStorage = setupStorage({
   user: {
     name: defineState<string>(),
     role: defineState<string>(),
@@ -18,6 +17,9 @@ export const storage = setupStorage({
     address: {
       city: defineState({ defaultValue: "" })
     }
-  }
+  },
+}, {
+  verbose: true,
+  verbosePath: "user.name",
 })
 

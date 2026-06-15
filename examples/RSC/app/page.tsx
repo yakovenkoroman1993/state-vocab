@@ -1,15 +1,12 @@
-import { serverStorage } from "@/storage.server";
+import { pageServerStorage } from "@/context/page.storage.server";
 import ServerUserInfo from "./user-info.server"
 
-const { StateVocabProvider } = serverStorage
+const PageStateVocabProvider = pageServerStorage.StateVocabProvider
 
 export default async function Home() {
   return (
     <main style={{ padding: 32, fontFamily: "monospace" }}>
-      <h1>state-vocab SSR test</h1>
-      <p>Values set via <code>getState</code> on the server:</p>
-
-      <StateVocabProvider
+      <PageStateVocabProvider
         value={{
           user: {
             name: "Name",
@@ -29,8 +26,7 @@ export default async function Home() {
         }}
       >
         <ServerUserInfo />
-      </StateVocabProvider>
-      
+      </PageStateVocabProvider>
     </main>
   )
 }

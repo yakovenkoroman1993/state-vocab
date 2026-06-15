@@ -1,10 +1,6 @@
-import React from "react"
-import * as asyncHooks from "node:async_hooks"
-import type { AsyncLocalStorage } from "node:async_hooks"
+import React, { cache } from "react"
 import type { PropsWithChildren, ReactNode } from "react"
 import type { Vocab } from "./state.types"
-
-type AsyncStore = { value: Vocab }
 
 const serverOnlyCheck = (name: string) => {
   if (!React.useState) {
@@ -14,44 +10,33 @@ const serverOnlyCheck = (name: string) => {
   throw new Error(`${name} only intended for Server Components`)
 }
 
-let storage: AsyncLocalStorage<AsyncStore> | null = null
-try {
-  serverOnlyCheck("StateVocabServerContext")
-  storage = new asyncHooks.AsyncLocalStorage<AsyncStore>()
-} catch {
-  // Running in client component context — server context unavailable
-  storage = null
-}
-
-const Enter = ({ value }: { value: Vocab }) => {
-  storage?.enterWith({ value })
-  return null
-}
+// Per-request Map keyed by opaque token — React.cache() creates a fresh Map per request
+const getRequestStore = cache(() => new Map<symbol, Vocab>())
 
 const NoopProvider = ({ children }: PropsWithChildren<{ value?: Vocab }>): ReactNode => children
 
 // Important! The provider must always be asynchronous because child components can be async too
 const RealProvider = async (
-  props: PropsWithChildren<{ value: Vocab }>
+  props: PropsWithChildren<{
+    serverContextKey: symbol
+    value: Vocab
+  }>
 ) => {
   serverOnlyCheck("StateVocabServerContext.Provider")
 
-  const { value, children } = props
-  
-  return (
-    <>
-      <Enter value={value} />
-      {children}
-    </>
-  )
+  const { serverContextKey, value, children } = props
+
+  getRequestStore().set(serverContextKey, value)
+
+  return children
 }
 
-export const getStateVocab = () => {
+export const getStateVocab = (serverContextKey: symbol) => {
   serverOnlyCheck("getStateVocab")
 
-  return storage?.getStore()?.value
+  return getRequestStore().get(serverContextKey)
 }
 
 export const StateVocabServerContext = {
-  Provider: storage ? RealProvider : NoopProvider
+  Provider: !React.useState ? RealProvider : NoopProvider
 }

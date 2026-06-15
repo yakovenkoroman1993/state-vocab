@@ -1,17 +1,23 @@
 "use client"
 
-import { type PropsWithChildren, useState } from "react";
+import { type Context, type PropsWithChildren, useState } from "react";
 import VocabStore from "./store";
 import type { Vocab } from "./state.types";
-import { StateVocabClientContext } from "./context.client";
-
+import { DefaultStateVocabClientContext } from "./context.client";
 
 export function StateVocabClientProvider(
-  props: PropsWithChildren<{ value?: Vocab }>
+  props: PropsWithChildren<{
+    clientContext?: Context<VocabStore>
+    value?: Vocab
+  }>
 ) {
-  const { children, value: vocab } = props
+  const { clientContext, value: vocab, children } = props
 
-  const [store] = useState(() => new VocabStore(vocab))
+  const [store] = useState(() => {
+    return new VocabStore(vocab)
+  })
+
+  const StateVocabClientContext = clientContext ?? DefaultStateVocabClientContext
 
   return (
     <StateVocabClientContext.Provider value={store}>

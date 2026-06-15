@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { type Context, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import type { Deserialize, Serialize, ValueOrTransformer, Vocab, VocabThis } from "./state.types";
 import { get, isTransformer, isValueDefined, logStyled, valueOrFactory } from "./utils";
@@ -19,10 +19,10 @@ const ERROR_MESSAGE = "Make sure your component is wrapped in StateVocabProvider
 function useState<V>(
   // eslint-disable-next-line react-hooks/unsupported-syntax
   this: VocabThis,
-  options?: UseStateOptions<V>
+  options: UseStateOptions<V> & {
+    clientContext: Context<VocabStore> | undefined
+  },
 ) {
-  options ??= {}
-
   const storage = isServer ? undefined : valueOrFactory(options.storage) as Storage
 
   const defaultValue = valueOrFactory(options.defaultValue)
@@ -33,7 +33,10 @@ function useState<V>(
   const verbosePath = this[STATE_VERBOSE_PATH];
   const ssr = this[STATE_SSR];
 
-  let vocabStore = useStateVocabClientContext({ verbose })
+  let vocabStore = useStateVocabClientContext({
+    clientContext: options.clientContext,
+    verbose,
+  })
 
   if (!(vocabStore instanceof VocabStore)) {
     if (ssr) {
@@ -182,10 +185,10 @@ function useState<V>(
 function useInitialState<V>(
   // eslint-disable-next-line react-hooks/unsupported-syntax
   this: VocabThis,
-  options?: UseInitialStateOptions<V>
+  options: UseInitialStateOptions<V> & {
+    clientContext: Context<VocabStore> | undefined
+  }
 ) {
-  options ??= {}
-  
   const storage = isServer ? undefined : valueOrFactory(options.storage) as Storage
 
   const defaultValue = valueOrFactory(options.defaultValue)
@@ -194,7 +197,10 @@ function useInitialState<V>(
   const verbose = this[STATE_VERBOSE];
   const ssr = this[STATE_SSR];
 
-  let vocabStore = useStateVocabClientContext({ verbose })
+  let vocabStore = useStateVocabClientContext({
+    clientContext: options.clientContext,
+    verbose,
+  })
 
   if (!(vocabStore instanceof VocabStore)) {
     if (ssr) {
@@ -275,7 +281,12 @@ function isSlot(value: unknown): value is Slot<unknown> {
   )
 }
 
-export function clientify<R extends object>(tree: R): Clientified<R> {
+export function clientify<R extends object>(
+  tree: R,
+  clientifyOptions: {
+    clientContext?: Context<object>
+  } = {}
+): Clientified<R> {
   const result: Record<string, unknown> = {}
 
   for (const key in tree) {
@@ -283,11 +294,17 @@ export function clientify<R extends object>(tree: R): Clientified<R> {
 
     if (isSlot(value)) {
       result[key] = value.clientSlot({
-        useState(this: VocabThis, ...args) {
-          return useState.apply(this, args)
+        useState(this: VocabThis, options) {
+          return useState.apply(this, [{
+            clientContext: clientifyOptions.clientContext as Context<VocabStore> | undefined,
+            ...options,
+          }])
         },
-        useInitialState(this: VocabThis, ...args) {
-          useInitialState.apply(this, args)
+        useInitialState(this: VocabThis, options) {
+          useInitialState.apply(this, [{
+            clientContext: clientifyOptions.clientContext as Context<VocabStore> | undefined,
+            ...options,
+          }])
         },
       })
 
@@ -297,7 +314,7 @@ export function clientify<R extends object>(tree: R): Clientified<R> {
       value !== null &&
       typeof value === "object"
     ) {
-      result[key] = clientify(value)
+      result[key] = clientify(value, clientifyOptions)
     } else {
       result[key] = value
     }
