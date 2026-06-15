@@ -260,6 +260,81 @@ By default `ssr: true`:
 
 This guarantees the server and client produce identical markup, and the value from storage is applied without a visible flash.
 
+### Next.js Pages Router (SSR without RSC)
+
+If you use Next.js with the **Pages Router** (or any SSR setup without React Server Components), you still need `ssr: true` to prevent hydration mismatches — but you don't have server components to wrap with `StateVocabProvider` from `serverify`.
+
+In this case, wrap your app with `StateVocabClientProvider` from `@yakocloud/state-vocab/client`. It creates an isolated `VocabStore` per render, preventing state from leaking between concurrent SSR requests.
+
+```tsx
+// pages/_app.tsx
+import type { AppProps } from 'next/app'
+import { StateVocabClientProvider } from '@yakocloud/state-vocab/client'
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <StateVocabClientProvider>
+      <Component {...pageProps} />
+    </StateVocabClientProvider>
+  )
+}
+```
+
+Storage is still configured with `ssr: true` (the default):
+
+```ts
+// lib/storage.ts
+import { setupStorage, defineState } from '@yakocloud/state-vocab'
+import { clientify } from '@yakocloud/state-vocab/client'
+
+const storage = setupStorage({
+  preference: {
+    theme: defineState<'Dark' | 'White' | 'System'>({
+      storage: localStorage,
+      defaultValue: 'Dark',
+    }),
+  },
+  // ssr: true is the default — storage reads are deferred until after hydration
+})
+
+export const clientStorage = clientify(storage)
+```
+
+Use `clientStorage` directly in any page or component — no additional wiring needed:
+
+```tsx
+// pages/settings.tsx
+import { clientStorage } from '@/lib/storage'
+
+export default function Settings() {
+  const [theme, setTheme] = clientStorage.preference.theme.useState()
+
+  return (
+    <select value={theme} onChange={(e) => setTheme(e.target.value as 'Dark' | 'White' | 'System')}>
+      <option value="Dark">Dark</option>
+      <option value="White">White</option>
+      <option value="System">System</option>
+    </select>
+  )
+}
+```
+
+`StateVocabClientProvider` also accepts an optional `value` prop to pre-seed the store with server-fetched data (e.g., from `getServerSideProps`):
+
+```tsx
+// pages/_app.tsx
+import type { AppProps } from 'next/app'
+import { StateVocabClientProvider } from '@yakocloud/state-vocab/client'
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <StateVocabClientProvider value={pageProps.initialVocab}>
+      <Component {...pageProps} />
+    </StateVocabClientProvider>
+  )
+}
+```
+
 ### React Server Components (RSC)
 
 For Next.js apps using the App Router, state-vocab provides dedicated server and client entry points that let you read state in async server components and pass it down to client components via `StateVocabProvider`.
@@ -270,7 +345,7 @@ For Next.js apps using the App Router, state-vocab provides dedicated server and
 |---|---|
 | `@yakocloud/state-vocab` | Shared files — `defineState`, `setupStorage` |
 | `@yakocloud/state-vocab/server` | Server Components — `serverify` |
-| `@yakocloud/state-vocab/client` | Client Components — `clientify` |
+| `@yakocloud/state-vocab/client` | Client Components — `clientify`, `StateVocabClientProvider` |
 
 **1. Define the shared storage schema** (used on both server and client):
 
@@ -605,6 +680,18 @@ const { StateVocabProvider } = serverStorage
 <StateVocabProvider value={{ user: { name: 'Alice' } }}>
   <App />
 </StateVocabProvider>
+```
+
+### `StateVocabClientProvider`
+
+A client-only provider for SSR setups **without** React Server Components (e.g. Next.js Pages Router). Import from `@yakocloud/state-vocab/client` and place it at your app root to ensure per-request store isolation. Accepts an optional `value` prop to pre-seed the store.
+
+```tsx
+import { StateVocabClientProvider } from '@yakocloud/state-vocab/client'
+
+<StateVocabClientProvider value={initialVocab}>
+  <App />
+</StateVocabClientProvider>
 ```
 
 ### `serverify<T>(storage: T)`

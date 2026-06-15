@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [4.0.2] - 2026-06-15
 
+### Added
+
+- **`StateVocabClientProvider` exported from `@yakocloud/state-vocab/client`** — for SSR setups that don't use React Server Components (e.g. Next.js Pages Router). Wrap your app root with it to get per-request store isolation on the server and prevent state leakage between concurrent requests. Accepts an optional `value` prop to pre-seed the store with server-fetched data:
+  ```tsx
+  // pages/_app.tsx
+  import { StateVocabClientProvider } from '@yakocloud/state-vocab/client'
+
+  export default function App({ Component, pageProps }: AppProps) {
+    return (
+      <StateVocabClientProvider>
+        <Component {...pageProps} />
+      </StateVocabClientProvider>
+    )
+  }
+  ```
+
 ### Breaking Changes
 
 - **Callable namespace syntax removed** — `serverify()` result namespaces are no longer callable. Use `.seed()` instead:
