@@ -1,121 +1,9 @@
 import React, { useId } from "react"
 import { createRoot } from "react-dom/client"
-import { toDateString, toLocalDatetimeString, debounce, isJsonValid } from "./main.utils"
-import { defineState, setupStorage } from "@yakocloud/state-vocab";
-import { StateVocabProvider, clientify } from "@yakocloud/state-vocab/client";
+import { toDateString, toLocalDatetimeString, isJsonValid, fetchMock, Theme } from "./main.utils"
+import { clientStorage } from "./storage";
 
-type Theme = "Dark" | "White" | "System"
-
-const db: Record<string, string> = {}
-
-function fetchMock(value: unknown) {
-  console.log("[UI]: Send request", value)
-  return new Promise<string>((resolve) =>
-    setTimeout(() => {
-      const rnd = Math.random().toString()
-      resolve(rnd)
-      console.log("[UI]: Fetched: ", rnd)
-    }, 1000)
-  )
-}
-
-const clientStorage = clientify(setupStorage({
-  preference: {
-    theme: defineState<Theme>({ storage: () => localStorage, defaultValue: "Dark" }),
-    nightMode: defineState({ storage: sessionStorage, defaultValue: false }),
-  },
-  personal: {
-    note: defineState({ storage: localStorage, defaultValue: "" }),
-    birthday: defineState({
-      storage: localStorage,
-      bidirectional: true,
-      deserialize(raw) {
-        try {
-          const date = JSON.parse(raw)
-          
-          return new Date(date)
-        } catch {
-          return null
-        }
-      }
-    }),
-    alarm: defineState({
-      storage: localStorage,
-      deserialize(raw) {
-        try {
-          const date = JSON.parse(raw)
-          
-          return new Date(date)
-        } catch {
-          return null
-        }
-      }
-    }),
-  },
-  stats: {
-    counter: defineState({
-      defaultValue: 0,
-      storage: sessionStorage
-    }),
-    list: defineState<{ 
-      id: number
-      label: string
-    }[]>({
-      storage: sessionStorage
-    }),
-  },
-  json: {
-    objectDraft: defineState<string>(),
-    object: defineState<object>({
-      storage: sessionStorage,
-    })
-  },
-  server: {
-    db: defineState({
-      // customStorage
-      defaultValue: "",
-      storage: {
-        length: 0,
-        clear: function (): void {
-          throw new Error('Function not implemented.')
-        },
-        getItem: function (key: string): string | null {
-          return db[key] ?? null
-        },
-        key: function (): string | null {
-          throw new Error('Function not implemented.')
-        },
-        removeItem: function (key: string): void {
-          delete db[key]
-        },
-        setItem(key: string, value: string) {
-          debouncedSetItem(key, value)
-        }
-      }
-    })
-  },
-  demo: {
-    pageProps: defineState<{
-      a: number;
-      b: number;
-      c: string[];
-    }>({
-      storage: localStorage,
-      bidirectional: true
-    }),
-  }
-}, {
-  verbose: true,
-  ssr: false,
-  // verbosePath: "demo.pageProps"
-}))
-
-const debouncedSetItem = debounce(async (key: string, value: string) => {
-  const data = await fetchMock(value)
-  db[key] = data
-}, 300)
-
-function Test() {
+function Main() {
   clientStorage.demo.pageProps.useState({
     defaultValue: {
       a: 1,
@@ -326,13 +214,11 @@ function DeepInside() {
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <StateVocabProvider>
-      <Test />
-      <br />
-      <br />
-      <br />
-      <br />
-      <Test />
-    </StateVocabProvider>
+    <Main />
+    <br />
+    <br />
+    <br />
+    <br />
+    <Main />
   </React.StrictMode>,
 )

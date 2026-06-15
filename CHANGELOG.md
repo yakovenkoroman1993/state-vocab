@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.2] - 2026-06-15
+
+### Breaking Changes
+
+- **Callable namespace syntax removed** — `serverify()` result namespaces are no longer callable. Use `.seed()` instead:
+  ```ts
+  // ❌ Old (4.0.0)
+  serverStorage.user({ name: 'Alice', role: 'Admin' })
+  serverStorage.person.address({ city: 'NY' })
+
+  // ✅ New
+  serverStorage.user.seed({ name: 'Alice', role: 'Admin' })
+  serverStorage.person.address.seed({ city: 'NY' })
+  ```
+- **`StateVocabProvider` moved to `serverify()` result** — no longer a separate export from `@yakocloud/state-vocab/server`. Destructure it from the serverified storage instead:
+  ```ts
+  // ❌ Old (4.0.0)
+  import { StateVocabProvider } from '@yakocloud/state-vocab/server'
+
+  // ✅ New
+  const { StateVocabProvider } = serverStorage
+  ```
+- **`StateVocabProvider` removed from `@yakocloud/state-vocab/client`** — no longer needed for standard SPAs. Hooks now fall back to a module-level store when no provider is present (requires `ssr: false`, ssr is `true` by default). Remove the import and wrapper:
+  ```tsx
+  // ❌ Old (4.0.0)
+  import { clientify, StateVocabProvider } from '@yakocloud/state-vocab/client'
+  // <StateVocabProvider><App /></StateVocabProvider>
+
+  // ✅ New — no provider needed
+  import { clientify } from '@yakocloud/state-vocab/client'
+  // <App />
+  ```
+- **`StateVocabProvider` `value` prop takes a plain object** — pass the data directly instead of using a callable invocation:
+  ```tsx
+  // ❌ Old (4.0.0)
+  <StateVocabProvider value={serverStorage({ user: { name: 'Alice' } })}>
+
+  // ✅ New
+  <StateVocabProvider value={{ user: { name: 'Alice' } }}>
+  ```
+
+---
+
 ## [4.0.0] - 2026-06-14
 
 ### Added

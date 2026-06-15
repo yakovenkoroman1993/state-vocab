@@ -10,8 +10,8 @@ export const StateVocabClientContext = createContext({} as VocabStore)
  */
 export function useStateVocabClientContext(
   options: {
-    verbose?: boolean
-  } = {}
+    verbose: boolean
+  }
 ) {
   const context = useContext(StateVocabClientContext)
 

@@ -1,7 +1,11 @@
+import type { PropsWithChildren, ReactNode } from "react";
 import { STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import { getStateVocab } from "./context.server";
+import { StateVocabProvider } from "./provider";
 import type { Vocab, VocabThis } from "./state.types";
 import { get } from "./utils";
+
+const ERROR_MESSAGE = "Make sure your component is wrapped in StateVocabProvider"
 
 function getState<V>(
   this: {
@@ -16,7 +20,7 @@ function getState<V>(
   const vocab = getStateVocab()
 
   if (!vocab) {
-    throw new Error("Make sure your component is wrapped in StateVocabProvider")
+    throw new Error(ERROR_MESSAGE)
   }
 
   return get(vocab, statePath) as V
@@ -43,11 +47,15 @@ type Serverified<R> =
   R extends Slot<infer TValue>
     ? Placeholder<TValue>
     : R extends object
-      ? { set(input: ServerifiedValue<R>): Vocab } & { [K in keyof R]: Serverified<R[K]> }
+      ? { seed(input: ServerifiedValue<R>): Vocab } & { [K in keyof R]: Serverified<R[K]> }
       : R
 
+
 type ServerifyResult<R extends object> =
-  { set(input: ServerifiedValue<R>): Vocab } & {
+  {
+    seed(input: ServerifiedValue<R>): Vocab
+    StateVocabProvider(props: PropsWithChildren<{ value?: ServerifiedValue<R> }>): Promise<ReactNode>
+  } & {
     [K in keyof R]: Serverified<R[K]>
   }
 
@@ -89,12 +97,21 @@ function serverifyInner<R extends object>(
     }
   }
 
-  result.set = (input: Record<string, unknown>) => wrap(input)
+  result.seed = (input: Record<string, unknown>) => wrap(input)
 
   return result as ServerifyResult<R>
 }
 
 export function serverify<R extends object>(tree: R): ServerifyResult<R> {
-  return serverifyInner(tree, (x) => x)
+  return {
+    ...serverifyInner(tree, (x) => x),
+    StateVocabProvider({ children, value }) {
+      return (
+        <StateVocabProvider value={value as Vocab}>
+          {children}
+        </StateVocabProvider>
+      )
+    }
+  }
 }
 

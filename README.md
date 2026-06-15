@@ -117,7 +117,7 @@ npm install @yakocloud/state-vocab react react-dom
 
 ## Quick Start
 
-Wrap your app with `StateVocabProvider` at the root — this initializes an isolated store for the component tree. Then define and use state anywhere inside it.
+Define your storage tree once (`setupStorage`/`defineState`), call `clientify` to attach React hooks. If you use react server components (RSC) wrap your app with `StateVocabProvider` at the root and call `serverify` to attach RSC-methods. Use state anywhere in the tree
 
 Library SSR-requirements:
 - `Per-request store`: A Next.js server can handle multiple requests simultaneously. This means that the store should be created per request and should not be shared across requests.
@@ -125,11 +125,11 @@ Library SSR-requirements:
 
 ```tsx
 import { setupStorage, defineState } from '@yakocloud/state-vocab'
-import { clientify, StateVocabProvider } from '@yakocloud/state-vocab/client'
+import { clientify } from '@yakocloud/state-vocab/client'
 
 type Theme = 'Dark' | 'White' | 'System'
 
-const storage = clientify(setupStorage({
+const storage = setupStorage({
   path: {
     to: {
       theme: defineState<Theme>({
@@ -138,18 +138,14 @@ const storage = clientify(setupStorage({
       }),
     },
   },
-}))
+}, {
+  ssr: false // by default true
+})
 
-function App() {
-  return (
-    <StateVocabProvider>
-      <Settings />
-    </StateVocabProvider>
-  )
-}
+const clientStorage = clientify(storage)
 
 function Settings() {
-  const [theme, setTheme] = storage.path.to.theme.useState()
+  const [theme, setTheme] = clientStorage.path.to.theme.useState()
 
   return (
     <select value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
@@ -159,37 +155,6 @@ function Settings() {
     </select>
   )
 }
-```
-
-## Setup
-
-### `StateVocabProvider`
-
-All components that call `.useState()` must be descendants of `StateVocabProvider`. It creates an isolated `VocabStore` instance for its subtree — multiple providers can coexist in the same app without sharing state.
-
-```tsx
-import { StateVocabProvider } from '@yakocloud/state-vocab/client'
-
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <StateVocabProvider>
-      <App />
-    </StateVocabProvider>
-  </React.StrictMode>
-)
-```
-
-You can mount multiple independent providers — each gets its own store:
-
-```tsx
-// Two isolated state trees — state does not bleed between them
-<StateVocabProvider>
-  <WidgetA />
-</StateVocabProvider>
-
-<StateVocabProvider>
-  <WidgetB />
-</StateVocabProvider>
 ```
 
 ## Core Concepts
@@ -237,7 +202,7 @@ Wraps a nested object of `defineState()` nodes and injects dot-separated paths i
 |---|---|---|---|
 | `verbose` | `boolean \| undefined` | Log current state to the browser console on every change | `false` |
 | `verbosePath` | `string \| undefined` | Narrow verbose logging to a specific subtree (dot-separated path). When set, only that subtree is logged instead of the entire state. TypeScript will autocomplete valid paths based on your tree. | `undefined` |
-| `ssr` | `boolean \| undefined` | Defer storage reads until after hydration (Next.js / SSR) | `false` |
+| `ssr` | `boolean \| undefined` | Defer storage reads until after hydration (Next.js / SSR) | `true` |
 
 ```ts
 const storage = setupStorage({
@@ -286,10 +251,10 @@ const storage = setupStorage({
   preference: {
     theme: defineState<Theme>({ storage: localStorage, defaultValue: 'Dark' }),
   },
-}, { ssr: true })
+})
 ```
 
-With `ssr: true`:
+By default `ssr: true`:
 - **Server & first client render** — always use `defaultValue`, storage is not read
 - **After hydration** — `useLayoutEffect` fires synchronously before paint, reads storage and updates state
 
@@ -304,7 +269,7 @@ For Next.js apps using the App Router, state-vocab provides dedicated server and
 | Import path | Use in |
 |---|---|
 | `@yakocloud/state-vocab` | Shared files — `defineState`, `setupStorage` |
-| `@yakocloud/state-vocab/server` | Server Components — `serverify`, `StateVocabProvider` |
+| `@yakocloud/state-vocab/server` | Server Components — `serverify` |
 | `@yakocloud/state-vocab/client` | Client Components — `clientify` |
 
 **1. Define the shared storage schema** (used on both server and client):
@@ -323,7 +288,7 @@ export const storage = setupStorage({
       city: defineState<string>(),
     },
   },
-}, { ssr: true })
+})
 ```
 
 **2. Create server and client storage handles:**
@@ -351,7 +316,8 @@ export const clientStorage = clientify(storage)
 ```tsx
 // app/page.tsx (Server Component)
 import { serverStorage } from '@/storage.server'
-import { StateVocabProvider } from '@yakocloud/state-vocab/server'
+
+const { StateVocabProvider } = serverStorage
 
 export default async function Page() {
   // Fetch data from DB / API
@@ -359,10 +325,10 @@ export default async function Page() {
 
   return (
     <StateVocabProvider
-      value={serverStorage.set({
+      value={{
         user: { name: user.name, role: user.role },
         person: { address: { city: user.city } },
-      })}
+      }}
     >
       <UserInfo />
     </StateVocabProvider>
@@ -398,33 +364,22 @@ export default function UserInfoClient() {
 
 #### `serverify(storage)`
 
-Converts a storage tree into its server-side counterpart. Each leaf gains a `.getState()` method that reads the value seeded into the nearest `StateVocabProvider`. Each namespace node (including the root) gains a `.set()` method that returns the input wrapped under its full ancestor path, ready for `StateVocabProvider`'s `value` prop.
+Converts a storage tree into its server-side counterpart. Each leaf gains a `.getState()` method that reads the value seeded into the nearest `StateVocabProvider`. Each namespace node (including the root) gains a `.seed()` method that returns the input wrapped under its full ancestor path. This method is optional for using. The result also exposes `StateVocabProvider` — a server-aware provider that accepts a plain object `value` prop to pre-seed the store.
 
-**`.set()` syntax:**
+**`.seed()` syntax:**
 
 ```ts
-// Full tree at once — root .set() returns input as-is
-serverStorage.set({ user: { name: 'Alice', role: 'Admin' } })
+// Full tree at once — root .seed() returns input as-is
+serverStorage.seed({ user: { name: 'Alice', role: 'Admin' } })
 // → { user: { name: 'Alice', role: 'Admin' } }
 
 // Single namespace — wraps input under its key
-serverStorage.user.set({ name: 'Alice', role: 'Admin' })
+serverStorage.user.seed({ name: 'Alice', role: 'Admin' })
 // → { user: { name: 'Alice', role: 'Admin' } }
 
 // Nested namespace — wraps up to the root
-serverStorage.person.address.set({ city: 'NY' })
+serverStorage.person.address.seed({ city: 'NY' })
 // → { person: { address: { city: 'NY' } } }
-```
-
-All three forms return a value ready to pass as `StateVocabProvider`'s `value` prop. They can be combined by spreading:
-
-```tsx
-<StateVocabProvider
-  value={{
-    ...serverStorage.user.set({ name: 'Alice', role: 'Admin' }),
-    ...serverStorage.person.address.set({ city: 'NY' }),
-  }}
->
 ```
 
 **`node.getState()`** reads the value for that leaf from the surrounding `StateVocabProvider`. Throws if called outside one.
@@ -521,11 +476,11 @@ const storage = setupStorage({
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { setupStorage, defineState } from '@yakocloud/state-vocab'
-import { clientify, StateVocabProvider } from '@yakocloud/state-vocab/client'
+import { clientify } from '@yakocloud/state-vocab/client'
 
 type Theme = 'Dark' | 'White' | 'System'
 
-const storage = clientify(setupStorage({
+const storage = setupStorage({
   preference: {
     theme: defineState<Theme>({ storage: localStorage, defaultValue: 'Dark' }),
     nightMode: defineState({ storage: sessionStorage, defaultValue: false }),
@@ -547,11 +502,15 @@ const storage = clientify(setupStorage({
       storage: localStorage,
     }),
   },
-}))
+}, {
+  ssr: false // by default true
+})
+
+const clientStorage = clientify(storage)
 
 // Root — initializes shared state for the whole subtree
 function Page() {
-  storage.demo.pageProps.useState({
+  clientStorage.demo.pageProps.useState({
     defaultValue: { title: 'Hello', count: 42 },
   })
 
@@ -560,15 +519,15 @@ function Page() {
 
 // Deep child — reads without re-specifying defaults
 function PageHeader() {
-  const [pageProps] = storage.demo.pageProps.useState()
+  const [pageProps] = clientStorage.demo.pageProps.useState()
   return <h1>{pageProps.title} ({pageProps.count})</h1>
 }
 
 function Dashboard() {
-  const [theme, setTheme] = storage.preference.theme.useState()
-  const [nightMode, setNightMode] = storage.preference.nightMode.useState()
-  const [counter, setCounter, resetCounter] = storage.stats.counter.useState()
-  const [note, setNote] = storage.personal.note.useState({
+  const [theme, setTheme] = clientStorage.preference.theme.useState()
+  const [nightMode, setNightMode] = clientStorage.preference.nightMode.useState()
+  const [counter, setCounter, resetCounter] = clientStorage.stats.counter.useState()
+  const [note, setNote] = clientStorage.personal.note.useState({
     delayedSet: 500,
     onSet: (v) => console.log('Saving note:', v),
   })
@@ -607,9 +566,7 @@ function Dashboard() {
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <StateVocabProvider>
-      <Page />
-    </StateVocabProvider>
+    <Page />
   </React.StrictMode>
 )
 ```
@@ -632,24 +589,20 @@ createRoot(document.getElementById('root')!).render(
 |---|---|---|
 | `verbose` | `boolean \| undefined` | `false` |
 | `verbosePath` | `Path<T> \| undefined` | `undefined` |
-| `ssr` | `boolean \| undefined` | `false` |
+| `ssr` | `boolean \| undefined` | `true` |
 
 Returns a proxied copy of `tree` with paths injected into all leaf nodes.
 
 ### `StateVocabProvider`
 
-A React context provider that initializes a `VocabStore` for its subtree. Required — all components calling `.useState()` must be descendants of this provider.
+A React context provider that initializes a `VocabStore` for its subtree. Only required in RSC / Next.js App Router contexts (where `ssr: true`). For standard SPAs without SSR, no provider is needed — hooks use a module-level store automatically.
+
+In RSC contexts, `StateVocabProvider` is available on the `serverify()` result — it accepts an optional `value` prop to pre-seed the store with server-fetched data:
 
 ```tsx
-<StateVocabProvider>
-  <App />
-</StateVocabProvider>
-```
+const { StateVocabProvider } = serverStorage
 
-Accepts an optional `value` prop (imported from `@yakocloud/state-vocab/server` in RSC contexts) to pre-seed the store with server-fetched data:
-
-```tsx
-<StateVocabProvider value={serverStorage.set({ user: { name: 'Alice' } })}>
+<StateVocabProvider value={{ user: { name: 'Alice' } }}>
   <App />
 </StateVocabProvider>
 ```
@@ -658,16 +611,18 @@ Accepts an optional `value` prop (imported from `@yakocloud/state-vocab/server` 
 
 Converts a storage tree to its server-side counterpart. Available from `@yakocloud/state-vocab/server`.
 
-Each leaf gains `.getState()` — reads the value from the nearest `StateVocabProvider`. Each namespace node gains `.set()`, which returns the input wrapped under its full ancestor path (ready for `StateVocabProvider`'s `value` prop).
+Each leaf gains `.getState()` — reads the value from the nearest `StateVocabProvider`. Each namespace node gains `.seed()`, which returns the input wrapped under its full ancestor path. The result also includes `StateVocabProvider` — use it instead of importing from `@yakocloud/state-vocab/server`.
 
 ```ts
 import { serverify } from '@yakocloud/state-vocab/server'
 const serverStorage = serverify(storage)
 
+const { StateVocabProvider } = serverStorage        // server-aware provider
+
 serverStorage.user.name.getState()                  // reads "user.name" from context
-serverStorage.user.set({ name: 'Alice' })           // → { user: { name: 'Alice' } }
-serverStorage.person.address.set({ city: 'NY' })    // → { person: { address: { city: 'NY' } } }
-serverStorage.set({ user: { name: 'Alice' } })      // → { user: { name: 'Alice' } } (identity)
+serverStorage.user.seed({ name: 'Alice' })          // → { user: { name: 'Alice' } }
+serverStorage.person.address.seed({ city: 'NY' })   // → { person: { address: { city: 'NY' } } }
+serverStorage.seed({ user: { name: 'Alice' } })     // → { user: { name: 'Alice' } } (identity)
 ```
 
 ### `clientify<T>(storage: T)`

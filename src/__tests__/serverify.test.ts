@@ -21,30 +21,30 @@ const serverStorage = serverify(storage)
 
 describe('serverify — namespace callables', () => {
   it('flat namespace set wraps input under its key', () => {
-    expect(serverStorage.user.set({ name: 'Alice', role: 'Admin' })).toEqual({
+    expect(serverStorage.user.seed({ name: 'Alice', role: 'Admin' })).toEqual({
       user: { name: 'Alice', role: 'Admin' },
     })
   })
 
   it('nested namespace set wraps input under the full ancestor path', () => {
-    expect(serverStorage.person.address.set({ city: 'NY' })).toEqual({
+    expect(serverStorage.person.address.seed({ city: 'NY' })).toEqual({
       person: { address: { city: 'NY' } },
     })
   })
 
   it('intermediate namespace set wraps input one level up', () => {
-    expect(serverStorage.person.set({ address: { city: 'NY' } })).toEqual({
+    expect(serverStorage.person.seed({ address: { city: 'NY' } })).toEqual({
       person: { address: { city: 'NY' } },
     })
   })
 
   it('root set returns input unchanged (identity)', () => {
     const value = { user: { name: 'Bob', role: 'User' } }
-    expect(serverStorage.set(value)).toEqual(value)
+    expect(serverStorage.seed(value)).toEqual(value)
   })
 
   it('root set accepts partial input', () => {
-    expect(serverStorage.set({ user: { name: 'Alice' } })).toEqual({
+    expect(serverStorage.seed({ user: { name: 'Alice' } })).toEqual({
       user: { name: 'Alice' },
     })
   })
@@ -68,7 +68,7 @@ describe('serverify — namespace callables', () => {
 describe('serverify — reserved property name "name"', () => {
   it('namespace with a field named "name" still has set()', () => {
     const s = serverify(setupStorage({ ns: { name: defineState<string>() } }))
-    expect(s.ns.set({ name: 'Test' })).toEqual({ ns: { name: 'Test' } })
+    expect(s.ns.seed({ name: 'Test' })).toEqual({ ns: { name: 'Test' } })
   })
 
   it('leaf named "name" is accessible as a property', () => {

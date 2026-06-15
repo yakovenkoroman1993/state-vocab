@@ -44,3 +44,23 @@ export const isJsonValid = (input: string) => {
     return false
   }
 }
+
+export type Theme = "Dark" | "White" | "System"
+
+export function fetchMock(value: unknown) {
+  console.log("[UI]: Send request", value)
+  return new Promise<string>((resolve) =>
+    setTimeout(() => {
+      const rnd = Math.random().toString()
+      resolve(rnd)
+      console.log("[UI]: Fetched: ", rnd)
+    }, 1000)
+  )
+}
+
+export const globalDb: Record<string, string> = {}
+
+export const debouncedSetItem = debounce(async (key: string, value: string) => {
+  const data = await fetchMock(value)
+  globalDb[key] = data
+}, 300)

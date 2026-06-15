@@ -6,11 +6,15 @@ import type { Deserialize, Serialize, ValueOrTransformer, Vocab, VocabThis } fro
 import { get, isTransformer, isValueDefined, logStyled, valueOrFactory } from "./utils";
 import { useStateVocabClientContext } from "./context.client";
 import VocabStore from "./store";
-import { useDebounce } from "./state.client.utils";
+import { sync, useDebounce } from "./setup.client.utils";
 import type { UseInitialStateOptions, UseStateOptions } from "./setup.types";
 
 const isServer = typeof window === "undefined"
 const useIsomorphicLayoutEffect = isServer ? useEffect : useLayoutEffect
+
+const globalVocabStore = new VocabStore() // Important! only for disabled ssr. Don't use it for RSC's
+
+const ERROR_MESSAGE = "Make sure your component is wrapped in StateVocabProvider (RSC) or disable ssr option in setupStorage for SPA (RCC only)"
 
 function useState<V>(
   // eslint-disable-next-line react-hooks/unsupported-syntax
@@ -29,26 +33,18 @@ function useState<V>(
   const verbosePath = this[STATE_VERBOSE_PATH];
   const ssr = this[STATE_SSR];
 
-  const vocabStore = useStateVocabClientContext({ verbose })
+  let vocabStore = useStateVocabClientContext({ verbose })
 
   if (!(vocabStore instanceof VocabStore)) {
-    throw new Error("Make sure your component is wrapped in StateVocabProvider")
+    if (ssr) {
+      throw new Error(ERROR_MESSAGE)
+    }
+    
+    vocabStore = globalVocabStore
   } 
 
   const serialize: Serialize<V> = options.serialize ?? JSON.stringify
   const deserialize: Deserialize<V> = options.deserialize ?? JSON.parse
-
-  const sync = (statePath: string, storage: Storage, value: V | undefined) => {
-    const serialized = storage.getItem(statePath)
-
-    if (serialized === null) {
-      if (isValueDefined(value)) {
-        storage.setItem(statePath, serialize(value))
-      }
-    } else { 
-      vocabStore.set(statePath, deserialize(serialized))
-    }
-  }
 
   const onSet = useDebounce(
     options.onSet ?? (() => {}),
@@ -73,7 +69,14 @@ function useState<V>(
     }
 
     if (!ssr && storage) {
-      sync(statePath, storage, initialValue)
+      sync({
+        vocabStore,
+        storage,
+        statePath,
+        value: initialValue,
+        serialize,
+        deserialize,
+      })
     }
   }
 
@@ -102,7 +105,14 @@ function useState<V>(
       return
     }
 
-    sync(statePath, storage, value)
+    sync({
+      vocabStore,
+      storage,
+      statePath,
+      value,
+      serialize,
+      deserialize,
+    })
   }, [])
 
   const handleStorageChange = useEffectEvent((event: StorageEvent) => {
@@ -184,22 +194,18 @@ function useInitialState<V>(
   const verbose = this[STATE_VERBOSE];
   const ssr = this[STATE_SSR];
 
-  const vocabStore = useStateVocabClientContext({ verbose })
+  let vocabStore = useStateVocabClientContext({ verbose })
+
+  if (!(vocabStore instanceof VocabStore)) {
+    if (ssr) {
+      throw new Error(ERROR_MESSAGE)
+    }
+    
+    vocabStore = globalVocabStore
+  }
 
   const serialize: Serialize<V> = options.serialize ?? JSON.stringify
   const deserialize: Deserialize<V> = options.deserialize ?? JSON.parse
-
-  const sync = (statePath: string, storage: Storage, value: V | undefined) => {
-    const serialized = storage.getItem(statePath)
-
-    if (serialized === null) {
-      if (isValueDefined(value)) {
-        storage.setItem(statePath, serialize(value))
-      }
-    } else { 
-      vocabStore.set(statePath, deserialize(serialized))
-    }
-  }
 
   const initializedRef = useRef(false)
   
@@ -218,7 +224,14 @@ function useInitialState<V>(
     }
 
     if (!ssr && storage) {
-      sync(statePath, storage, initialValue)
+      sync({
+        vocabStore,
+        storage,
+        statePath,
+        value: initialValue,
+        serialize,
+        deserialize,
+      })
     }
   }
 
@@ -227,7 +240,14 @@ function useInitialState<V>(
       return
     }
 
-    sync(statePath, storage, initialValue)
+    sync({
+      vocabStore,
+      storage,
+      statePath,
+      value: initialValue,
+      serialize,
+      deserialize,
+    })
   }, [])
 }
 

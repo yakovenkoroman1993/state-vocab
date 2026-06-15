@@ -60,6 +60,14 @@ export default defineConfig({
           react: 'React',
           'react-dom': 'ReactDOM'
         },
+        manualChunks(id) {
+          if (id.endsWith("/provider.client.tsx")) {
+            return "provider-client"
+          }
+          if (id.endsWith("/utils.ts")) {
+            return "utils"
+          }
+        },
       }
     }
   }
