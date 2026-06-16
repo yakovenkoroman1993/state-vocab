@@ -412,6 +412,10 @@ import { serverStorage } from '@/storage.server'
 const { StateVocabProvider } = serverStorage
 
 export default async function Page() {
+  // Call start() before rendering the provider — registers the store for this
+  // request so child components can await getState() concurrently
+  serverStorage.start()
+
   // Fetch data from DB / API
   const user = await db.getUser()
 
@@ -433,8 +437,8 @@ export default async function Page() {
 import { serverStorage } from '@/storage.server'
 
 export default async function UserInfo() {
-  const name = serverStorage.user.name.getState()
-  const role = serverStorage.user.role.getState()
+  const name = await serverStorage.user.name.getState()
+  const role = await serverStorage.user.role.getState()
 
   return <p>{name} — {role}</p>
 }
@@ -490,7 +494,7 @@ Each `StateVocabProvider` wraps its own subtree; a component that calls `pageCli
 
 #### `serverify(storage)`
 
-Converts a storage tree into its server-side counterpart. Each leaf gains a `.getState()` method that reads the value seeded into the nearest `StateVocabProvider`. Each namespace node (including the root) gains a `.seed()` method that returns the input wrapped under its full ancestor path. This method is optional for using. The result also exposes `StateVocabProvider` — a server-aware provider that accepts a plain object `value` prop to pre-seed the store.
+Converts a storage tree into its server-side counterpart. Each leaf gains an async `.getState()` method that resolves once the nearest `StateVocabProvider` renders and provides its value. Each namespace node (including the root) gains a `.seed()` method that returns the input wrapped under its full ancestor path. The result also exposes `StateVocabProvider` and `start()` — call `start()` at the top of the component that renders `StateVocabProvider` so concurrent server children can await the value without timing out.
 
 **`.seed()` syntax:**
 
@@ -508,7 +512,7 @@ serverStorage.person.address.seed({ city: 'NY' })
 // → { person: { address: { city: 'NY' } } }
 ```
 
-**`node.getState()`** reads the value for that leaf from the surrounding `StateVocabProvider`. Throws if called outside one.
+**`node.getState()`** asynchronously reads the value for that leaf once the surrounding `StateVocabProvider` has rendered. Returns `Promise<V>` — always `await` it. Throws (rejects) if called outside a provider scope or if `serverTimeout` expires.
 
 #### `clientify(storage)`
 
@@ -752,21 +756,32 @@ Converts a storage tree to its server-side counterpart. Available from `@yakoclo
 | Option | Type | Description |
 |---|---|---|
 | `clientContext` | `Context<object>` | **Required.** A React context created with `createContext({})` in a `"use client"` file. Must match the `clientContext` passed to `clientify` for the same storage tree. |
+| `serverTimeout` | `number \| undefined` | Timeout in ms for each `getState()` call. Defaults to `1000`. If the `StateVocabProvider` has not rendered within this window, `getState()` rejects with a descriptive error. |
 
-Each leaf gains `.getState()` — reads the value from the nearest `StateVocabProvider`. Each namespace node gains `.seed()`, which returns the input wrapped under its full ancestor path. The result also includes `StateVocabProvider` — use it instead of importing from `@yakocloud/state-vocab/server`.
+The result exposes:
+
+- **`start()`** — call once at the top of the component that renders `StateVocabProvider`, before any `await` expressions. It registers a pending promise in the per-request store (`React.cache()` scope), which lets concurrent server components `await getState()` without hanging. Must be called within a React render context.
+- **`StateVocabProvider`** — synchronous server component that accepts a `value` prop and resolves the pending promise registered by `start()`.
+- **`node.getState()`** — async; reads the value for that leaf once the nearest `StateVocabProvider` has rendered. Throws if called outside a provider scope or if the timeout expires.
+- **`node.seed(input)`** — wraps `input` under the node's ancestor path, returning a plain object ready to pass as the `value` prop.
 
 ```ts
 import { serverify } from '@yakocloud/state-vocab/server'
 import { MyClientContext } from '@/storage.context.client'
 
-const serverStorage = serverify(storage, { clientContext: MyClientContext })
+const serverStorage = serverify(storage, {
+  clientContext: MyClientContext,
+  serverTimeout: 2000, // optional, default 1000
+})
 
-const { StateVocabProvider } = serverStorage        // server-aware provider
+const { StateVocabProvider } = serverStorage
 
-serverStorage.user.name.getState()                  // reads "user.name" from context
-serverStorage.user.seed({ name: 'Alice' })          // → { user: { name: 'Alice' } }
-serverStorage.person.address.seed({ city: 'NY' })   // → { person: { address: { city: 'NY' } } }
-serverStorage.seed({ user: { name: 'Alice' } })     // → { user: { name: 'Alice' } } (identity)
+// In a Server Component:
+serverStorage.start()                                  // register before rendering
+await serverStorage.user.name.getState()               // reads "user.name" (async)
+serverStorage.user.seed({ name: 'Alice' })             // → { user: { name: 'Alice' } }
+serverStorage.person.address.seed({ city: 'NY' })      // → { person: { address: { city: 'NY' } } }
+serverStorage.seed({ user: { name: 'Alice' } })        // → { user: { name: 'Alice' } } (identity)
 ```
 
 ### `clientify<T>(storage: T, options?)`

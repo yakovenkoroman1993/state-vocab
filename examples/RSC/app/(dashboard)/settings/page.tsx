@@ -1,11 +1,18 @@
+import ServerUserInfo from "@/app/(dashboard)/settings/user-info.server";
+import { layoutServerStorage } from "@/context/layout.storage.server";
 import { pageServerStorage } from "@/context/page.storage.server";
-import ServerUserInfo from "./user-info.server"
 
 const PageStateVocabProvider = pageServerStorage.StateVocabProvider
 
 export default async function Home() {
+  pageServerStorage.start()
+  
+  const session = await layoutServerStorage.session.getState()
+
   return (
-    <main style={{ padding: 32, fontFamily: "monospace" }}>
+    <div style={{ padding: 32, fontFamily: "monospace" }}>
+      <p>SESSION ID (page.tsx): <b>{session.id}</b></p>
+      <hr />
       <PageStateVocabProvider
         value={{
           user: {
@@ -27,6 +34,6 @@ export default async function Home() {
       >
         <ServerUserInfo />
       </PageStateVocabProvider>
-    </main>
+    </div>
   )
 }

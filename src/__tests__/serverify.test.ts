@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { serverify } from '../setup.server'
 import { setupStorage } from '../setup'
 import { defineState } from '../state'
+import { createContext } from 'react'
 
 const storage = setupStorage({
   user: {
@@ -15,7 +16,11 @@ const storage = setupStorage({
   },
 })
 
-const serverStorage = serverify(storage)
+const ClientContext = createContext({})
+
+const serverStorage = serverify(storage, {
+  clientContext: ClientContext
+})
 
 // ─── namespace callables ──────────────────────────────────────────────────────
 
@@ -59,7 +64,7 @@ describe('serverify — namespace callables', () => {
   })
 
   it('getState throws when called outside a provider', () => {
-    expect(() => serverStorage.user.name.getState()).toThrow()
+    expect(() => serverStorage.user.name.getState()).rejects.toThrow()
   })
 })
 
@@ -67,12 +72,34 @@ describe('serverify — namespace callables', () => {
 
 describe('serverify — reserved property name "name"', () => {
   it('namespace with a field named "name" still has set()', () => {
-    const s = serverify(setupStorage({ ns: { name: defineState<string>() } }))
+    const ClientContext = createContext({})
+
+    const s = serverify(
+      setupStorage({
+        ns: {
+          name: defineState<string>()
+        }
+      }),
+      {
+        clientContext: ClientContext
+      }
+    )
     expect(s.ns.seed({ name: 'Test' })).toEqual({ ns: { name: 'Test' } })
   })
 
   it('leaf named "name" is accessible as a property', () => {
-    const s = serverify(setupStorage({ ns: { name: defineState<string>() } }))
+    const ClientContext = createContext({})
+
+    const s = serverify(
+      setupStorage({
+        ns: {
+          name: defineState<string>()
+        }
+      }),
+      {
+        clientContext: ClientContext
+      }
+    )
     expect(typeof s.ns.name.getState).toBe('function')
   })
 })

@@ -4,13 +4,13 @@ import { defineState } from "../state"
 import { clientify } from "../setup.client"
 import { setupStorage } from "../setup"
 import React from "react"
-import { StateVocabProvider } from "../provider"
+import { StateVocabClientProvider } from "../provider.client"
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function makeWrapper() {
   return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(StateVocabProvider, null, children)
+    React.createElement(StateVocabClientProvider, null, children)
 }
 
 function renderState<T>(

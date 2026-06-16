@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.2.0] - 2026-06-16
+
+### Added
+
+- **`start()` on `serverify` result** — call `serverStorage.start()` at the top of the component that renders `StateVocabProvider`, before the provider renders. This registers a pending promise in the per-request store so that sibling or ancestor server components can `await getState()` concurrently, without waiting for the provider to finish rendering first:
+  ```tsx
+  // app/(dashboard)/layout.tsx (Server Component)
+  export default async function DashboardLayout({ children }: PropsWithChildren) {
+    layoutServerStorage.start()  // register the store for this request
+
+    return (
+      <LayoutStateVocabProvider value={{ session: { id: 12345 } }}>
+        {children}
+      </LayoutStateVocabProvider>
+    )
+  }
+  ```
+
+  Without `start()`, a child component calling `await getState()` for a store whose provider hasn't rendered. With `start()` the promise is registered immediately — the provider resolves it when it renders, and any concurrent `getState()` awaits just long enough.
+
+- **`serverTimeout` option in `serverify`** — optional timeout in milliseconds (default `1000`) applied to each `getState()` call. If the `StateVocabProvider` does not render within the timeout window, `getState()` rejects with a descriptive error message:
+  ```ts
+  export const serverStorage = serverify(storage, {
+    clientContext: MyClientContext,
+    serverTimeout: 2000, // default: 1000
+  })
+  ```
+
+### Breaking Changes
+
+- **`getState()` now returns `Promise<V>`** — all `.getState()` calls in server components must be `await`ed:
+  ```tsx
+  // ❌ Old (4.1.0)
+  const name = serverStorage.user.name.getState()
+
+  // ✅ New
+  const name = await serverStorage.user.name.getState()
+  ```
+
+### Changed
+
+- **`StateVocabProvider` is now a synchronous component** — previously an async server component, it now returns `ReactNode` synchronously. Value resolution is handled via `Promise.withResolvers`: `start()` registers the pending promise and `StateVocabProvider` resolves it when it renders, decoupling registration from rendering.
+
+- **Symbols are now debug-labeled** — `serverify()` now creates `Symbol(debugMarker)` where the marker includes the first few top-level keys of the storage tree (e.g. `Symbol(user-person-session)`). Makes storage trees easier to identify in stack traces and React DevTools.
+
+---
+
 ## [4.1.0] - 2026-06-16
 
 ### Added

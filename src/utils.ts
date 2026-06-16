@@ -120,3 +120,24 @@ export const isValueDefined = <V>(v: V | undefined): v is V => {
 export const valueOrFactory = <V>(input: ValueOrFactory<V>) => {
   return isFactory(input) ? input() : input
 }
+
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(message));
+        }, ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}

@@ -1,22 +1,30 @@
 import type { Context, PropsWithChildren, ReactNode } from "react";
 import { STATE_PATH } from "./constants";
-import { getStateVocab } from "./context.server";
-import { StateVocabProvider } from "./provider";
+import {
+  getRequestStore,
+  getStateVocab
+} from "./context.server";
+import { StateVocabClientProvider } from "./provider.client";
 import type { Vocab, VocabThis } from "./state.types";
-import { get } from "./utils";
+import { get, withTimeout } from "./utils";
 import VocabStore from "./store";
 
 const ERROR_MESSAGE = "Make sure your component is wrapped in StateVocabProvider"
 
-function getState<V>(
+async function getState<V>(
   this: VocabThis,
   options: {
+    timeout: number
     serverContextKey: symbol
   }
-): V {
+): Promise<V> {
   const statePath = this[STATE_PATH];
 
-  const vocab = getStateVocab(options.serverContextKey)
+  const vocab = await withTimeout(
+    getStateVocab(options.serverContextKey),
+    options.timeout,
+    `Failed access to "${statePath}". Reason: Operation timed out after ${options.timeout}ms. ${ERROR_MESSAGE}.`
+  )
 
   if (!vocab) {
     throw new Error(ERROR_MESSAGE)
@@ -26,34 +34,40 @@ function getState<V>(
 }
 
 type Placeholder<V> = {
-  getState(): V
+  getState(): Promise<V>
 }
 
 type Slot<V> = {
   serverSlot(input: Placeholder<V>): Placeholder<V>
 }
 
+type SlotValue<T> =
+  T extends { serverSlot(input: { getState(this: VocabThis): infer V }): unknown }
+    ? V
+    : never
+
 type ServerifiedValue<R> = {
   [K in keyof R]?:
-    R[K] extends Slot<infer V>
-      ? V
-      : R[K] extends object
+    [SlotValue<R[K]>] extends [never]
+      ? R[K] extends object
         ? ServerifiedValue<R[K]>
         : R[K]
+      : SlotValue<R[K]>
 }
 
 type Serverified<R> =
-  R extends Slot<infer TValue>
-    ? Placeholder<TValue>
-    : R extends object
+  [SlotValue<R>] extends [never]
+    ? R extends object
       ? { seed(input: ServerifiedValue<R>): Vocab } & { [K in keyof R]: Serverified<R[K]> }
       : R
+    : Placeholder<SlotValue<R>>
 
 
 type ServerifyResult<R extends object> =
   {
+    start(): void
     seed(input: ServerifiedValue<R>): Vocab
-    StateVocabProvider(props: PropsWithChildren<{ value?: ServerifiedValue<R> }>): Promise<ReactNode>
+    StateVocabProvider(props: PropsWithChildren<{ value?: ServerifiedValue<R> }>): ReactNode
   } & {
     [K in keyof R]: Serverified<R[K]>
   }
@@ -70,6 +84,7 @@ function serverifyInner<R extends object>(
   tree: R,
   options: {
     serverContextKey: symbol
+    serverTimeout: number
     wrap: (x: Record<string, unknown>) => Record<string, unknown>
   }
 ): ServerifyResult<R> {
@@ -83,6 +98,7 @@ function serverifyInner<R extends object>(
         getState(this: VocabThis) {
           return getState.apply(this, [{
             serverContextKey: options.serverContextKey,
+            timeout: options.serverTimeout
           }])
         },
       })
@@ -96,6 +112,7 @@ function serverifyInner<R extends object>(
       const childWrap = (x: Record<string, unknown>) => options.wrap({ [key]: x })
       result[key] = serverifyInner(value, {
         serverContextKey: options.serverContextKey,
+        serverTimeout: options.serverTimeout,
         wrap: childWrap,
       })
     } else {
@@ -112,24 +129,45 @@ export function serverify<R extends object>(
   tree: R,
   serverifyOptions: {
     clientContext: Context<object>
+    serverTimeout?: number
   }
 ): ServerifyResult<R> {
-  const serverContextKey = Symbol()
+  const debugMarker = Object.keys(tree).slice(0, 3).join("-")
+  
+  const serverContextKey = Symbol(debugMarker)
 
+  const resolver = Promise.withResolvers<Vocab>()
+  
   return {
     ...serverifyInner(tree, {
       serverContextKey,
-      wrap: (x) => x,
+      serverTimeout: serverifyOptions.serverTimeout ?? 1000,
+      wrap: (v) => v,
     }),
+    start() {
+      const { size } = getRequestStore()
+      
+      const testContextKey = Symbol("test")
+      getRequestStore().set(testContextKey, resolver.promise)
+      if (getRequestStore().size === size) {
+        throw new Error("Start execution only within a React render context (per-request)")
+      } else {
+        getRequestStore().delete(testContextKey)
+      }
+
+      getRequestStore().set(serverContextKey, resolver.promise)
+    },
     StateVocabProvider({ children, value }) {
+      value ??= {}
+      resolver.resolve(value)
+
       return (
-        <StateVocabProvider
+        <StateVocabClientProvider
           clientContext={serverifyOptions.clientContext as Context<VocabStore>}
-          serverContextKey={serverContextKey}
-          value={value as Vocab}
+          value={value}
         >
           {children}
-        </StateVocabProvider>
+        </StateVocabClientProvider>
       )
     }
   }
