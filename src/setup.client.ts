@@ -1,18 +1,19 @@
 "use client"
 
 import { type Context, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSyncExternalStore } from "react";
-import { STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import type { Deserialize, Serialize, ValueOrTransformer, Vocab, VocabThis } from "./state.types";
+import type { UseInitialStateOptions, UseStateOptions } from "./setup.client.types";
+import type { ClientifyResult } from "./setup.client.types";
+import { STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import { get, isTransformer, isValueDefined, logStyled, valueOrFactory } from "./utils";
 import { useStateVocabClientContext } from "./context.client";
 import VocabStore from "./store";
-import { sync, useDebounce } from "./setup.client.utils";
-import type { UseInitialStateOptions, UseStateOptions } from "./setup.types";
+import { isClientSlot, sync, useDebounce } from "./setup.client.utils";
 
 const isServer = typeof window === "undefined"
 const useIsomorphicLayoutEffect = isServer ? useEffect : useLayoutEffect
 
-const globalVocabStore = new VocabStore() // Important! only for disabled ssr. Don't use it for RSC's
+const globalVocabStore = new VocabStore() // Important! Used only for disabled ssr. It doesn't use within RSC render context
 
 const ERROR_MESSAGE = "Make sure your component is wrapped in StateVocabProvider (RSC) or disable ssr option in setupStorage for SPA (RCC only)"
 
@@ -257,42 +258,18 @@ function useInitialState<V>(
   }, [])
 }
 
-type Placeholder<V> = {
-  useState(options?: UseStateOptions<V>): ReturnType<typeof useState<V>>
-  useInitialState(options?: UseInitialStateOptions<V>): void
-}
-
-type Slot<V> = {
-  clientSlot(input: Placeholder<V>): Placeholder<V>
-}
-
-type Clientified<R> =
-  R extends Slot<infer TValue>
-    ? Placeholder<TValue>
-    : R extends object
-      ? { [K in keyof R]: Clientified<R[K]> }
-      : R
-
-function isSlot(value: unknown): value is Slot<unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "clientSlot" in value
-  )
-}
-
 export function clientify<R extends object>(
   tree: R,
   clientifyOptions: {
     clientContext?: Context<object>
   } = {}
-): Clientified<R> {
+): ClientifyResult<R> {
   const result: Record<string, unknown> = {}
 
   for (const key in tree) {
     const value = tree[key]
 
-    if (isSlot(value)) {
+    if (isClientSlot(value)) {
       result[key] = value.clientSlot({
         useState(this: VocabThis, options) {
           return useState.apply(this, [{
@@ -320,6 +297,6 @@ export function clientify<R extends object>(
     }
   }
 
-  return result as Clientified<R>
+  return result as ClientifyResult<R>
 }
 

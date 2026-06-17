@@ -1,6 +1,6 @@
 // use both client and server
-import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import type { Deserialize, Serialize, ValueOrFactory, ValueOrTransformer, VocabThis } from "./state.types";
+import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
 import { valueOrFactory } from "./utils";
 
 export function defineState<V>(

@@ -1,19 +1,5 @@
+import type { InjectPathsOptions } from "./setup.types";
 import { STATE_DEFINITION, STATE_PATH, STATE_SSR, STATE_VERBOSE, STATE_VERBOSE_PATH } from "./constants";
-
-type Path<T, Prefix extends string = ""> = {
-  [K in keyof T & string]: T[K] extends object
-    ? T[K] extends { [STATE_DEFINITION]: unknown }
-      ? `${Prefix}${K}` 
-      : `${Prefix}${K}` | Path<T[K], `${Prefix}${K}.`>
-    : `${Prefix}${K}`
-}[keyof T & string];
-
-type InjectPathsOptions<T extends object> = {
-  path: string
-  verbose: boolean
-  verbosePath: Path<T>
-  ssr: boolean
-}
 
 /**
  * Recursively traverses a router object and injects the current path (STATE_PATH)

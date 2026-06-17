@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.3.0] - 2026-06-17
+
+### Breaking Changes
+
+- **`getState()` is now synchronous** — `.getState()` returns `V` directly. Remove all `await` calls:
+  ```tsx
+  // ❌ Old (4.2.0)
+  const name = await serverStorage.user.name.getState()
+
+  // ✅ New
+  const name = serverStorage.user.name.getState()
+  ```
+
+- **`start()` removed** — The `start()` method no longer exists on the `serverify` result. Remove all `serverStorage.start()` calls. `StateVocabProvider` now sets the vocab synchronously when it renders, so no pre-registration step is needed:
+  ```tsx
+  // ❌ Old (4.2.0)
+  export default async function Layout({ children }) {
+    serverStorage.start()
+    return <StateVocabProvider value={...}>{children}</StateVocabProvider>
+  }
+
+  // ✅ New — just render the provider
+  export default async function Layout({ children }) {
+    return <StateVocabProvider value={...}>{children}</StateVocabProvider>
+  }
+  ```
+
+### Changed
+
+- **`serverifyOptions` is now optional** — both `clientContext` is optional. `serverify(storage)` is valid with no options:
+  ```ts
+  // All equivalent:
+  serverify(storage)
+  serverify(storage, {})
+  serverify(storage, { clientContext: MyCtx })
+  ```
+
+- **`serverTimeout` option was removed** — since `getState()` is synchronous, there is no async window to time out.
+
+- **`clientContext` is now optional in `clientify`** — omit it for SPA or single-tree setups; pass it only when multiple independent storage trees coexist on the same page.
+
+- **Internal type refactoring** — types extracted into dedicated files (`setup.client.types.ts`, `setup.server.types.ts`) and server-side guards moved to `setup.server.utils.ts`. No public API change.
+
+- **RSC example storage files relocated** — moved from `examples/RSC/context/` to `examples/RSC/app/_storage/`, following Next.js App Router colocation conventions. Separate context files (`*.context.client.ts`) eliminated; layout and page storage definitions consolidated into fewer files.
+
+---
+
 ## [4.2.0] - 2026-06-16
 
 ### Added

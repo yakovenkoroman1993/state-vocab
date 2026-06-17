@@ -1,18 +1,16 @@
-import type { Deserialize, Serialize, ValueOrFactory } from "./state.types"
+import { STATE_DEFINITION } from "./constants";
 
-export type UseStateOptions<V> = {
-  defaultValue?: ValueOrFactory<V>,
-  delayedSet?: number
-  bidirectional?: true
-  onSet?(nextValue: NoInfer<V>, prevValue: NoInfer<V>): void
-  storage?: unknown
-  serialize?: Serialize<V>
-  deserialize?: Deserialize<V>
-}
+type Path<T, Prefix extends string = ""> = {
+  [K in keyof T & string]: T[K] extends object
+    ? T[K] extends { [STATE_DEFINITION]: unknown }
+      ? `${Prefix}${K}` 
+      : `${Prefix}${K}` | Path<T[K], `${Prefix}${K}.`>
+    : `${Prefix}${K}`
+}[keyof T & string];
 
-export type UseInitialStateOptions<V> = {
-  defaultValue?: ValueOrFactory<V>,
-  storage?: unknown
-  serialize?: Serialize<V>
-  deserialize?: Deserialize<V>
+export type InjectPathsOptions<T extends object> = {
+  path: string
+  verbose: boolean
+  verbosePath: Path<T>
+  ssr: boolean
 }

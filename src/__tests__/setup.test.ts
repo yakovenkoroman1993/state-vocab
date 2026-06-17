@@ -1,36 +1,36 @@
-import { describe, it, expect } from 'vitest'
-import { setupStorage } from '../setup'
-import { clientify } from '../setup.client'
-import { defineState } from '../state'
+import { describe, it, expect } from "vitest"
+import { setupStorage } from "../setup"
+import { clientify } from "../setup.client"
+import { defineState } from "../state"
 
 // ─── path injection ───────────────────────────────────────────────────────────
 function setupClientStorage<T extends object>(tree: T) {
   return clientify(setupStorage(tree, { ssr: false }))
 }
 
-describe('setupStorage / injectPaths', () => {
-  it('инжектирует путь в листовой узел на первом уровне', () => {
+describe("setupStorage / injectPaths", () => {
+  it("injects a path into a first-level leaf node", () => {
     const storage = setupClientStorage({ foo: defineState() })
-    expect(storage.foo.toString()).toBe('foo')
+    expect(storage.foo.toString()).toBe("foo")
   })
 
-  it('инжектирует вложенный путь через точку', () => {
+  it("injects a nested dot-separated path", () => {
     const storage = setupClientStorage({
       a: { b: { c: defineState() } }
     })
-    expect(storage.a.b.c.toString()).toBe('a.b.c')
+    expect(storage.a.b.c.toString()).toBe("a.b.c")
   })
 
-  it('разные листья получают разные пути', () => {
+  it("assigns different paths to different leaves", () => {
     const storage = setupClientStorage({
       x: defineState(),
       y: defineState(),
     })
-    expect(storage.x.toString()).toBe('x')
-    expect(storage.y.toString()).toBe('y')
+    expect(storage.x.toString()).toBe("x")
+    expect(storage.y.toString()).toBe("y")
   })
 
-  it('глубоко вложенные листья', () => {
+  it("handles deeply nested leaves", () => {
     const storage = setupClientStorage({
       preference: {
         theme: defineState<string>(),
@@ -39,58 +39,58 @@ describe('setupStorage / injectPaths', () => {
         }
       }
     })
-    expect(storage.preference.theme.toString()).toBe('preference.theme')
-    expect(storage.preference.ui.nightMode.toString()).toBe('preference.ui.nightMode')
+    expect(storage.preference.theme.toString()).toBe("preference.theme")
+    expect(storage.preference.ui.nightMode.toString()).toBe("preference.ui.nightMode")
   })
 
-  // ─── кэширование ─────────────────────────────────────────────────────────
+  // ─── caching ──────────────────────────────────────────────────────────────
 
-  it('возвращает один и тот же объект-лист при повторном обращении (leafCache)', () => {
+  it("returns the same leaf object on repeated access (leafCache)", () => {
     const storage = setupClientStorage({ item: defineState() })
     const first = storage.item
     const second = storage.item
     expect(first).toBe(second)
   })
 
-  it('возвращает один и тот же промежуточный прокси (proxyCache)', () => {
+  it("returns the same intermediate proxy on repeated access (proxyCache)", () => {
     const storage = setupClientStorage({ a: { b: defineState() } })
     const first = storage.a
     const second = storage.a
     expect(first).toBe(second)
   })
 
-  // ─── методы листа ─────────────────────────────────────────────────────────
+  // ─── leaf methods ─────────────────────────────────────────────────────────
 
-  it('useState на листе — функция', () => {
+  it("useState on a leaf is a function", () => {
     const storage = setupClientStorage({ val: defineState() })
-    expect(typeof storage.val.useState).toBe('function')
+    expect(typeof storage.val.useState).toBe("function")
   })
 
-  it('toString возвращает правильный путь', () => {
+  it("toString returns the correct path", () => {
     const storage = setupClientStorage({ deep: { path: defineState() } })
-    expect(storage.deep.path.toString()).toBe('deep.path')
-    expect(`${storage.deep.path}`).toBe('deep.path')
+    expect(storage.deep.path.toString()).toBe("deep.path")
+    expect(`${storage.deep.path}`).toBe("deep.path")
   })
 
-  it('один leaf-объект переиспользуется с разными путями независимо', () => {
+  it("reuses the same leaf object independently across different paths", () => {
     const leaf = defineState<string>()
     const storage = setupClientStorage({ a: leaf, b: leaf })
-    // Каждый путь должен получить свой STATE_PATH
-    expect(storage.a.toString()).toBe('a')
-    expect(storage.b.toString()).toBe('b')
+    // Each path should receive its own STATE_PATH
+    expect(storage.a.toString()).toBe("a")
+    expect(storage.b.toString()).toBe("b")
   })
 
-  // ─── примитивы и не-листья ────────────────────────────────────────────────
+  // ─── primitives and non-leaf values ──────────────────────────────────────
 
-  it('примитивные значения возвращаются как есть', () => {
+  it("returns primitive values as-is", () => {
     const storage = setupClientStorage({ version: 1 })
-    expect((storage).version).toBe(1)
+    expect(storage.version).toBe(1)
   })
 
-  it('не оборачивает обычные объекты без STATE_DEFINITION', () => {
+  it("does not wrap plain objects without STATE_DEFINITION", () => {
     const config = { timeout: 500 }
     const storage = setupClientStorage({ config })
-    // Возвращает прокси, но значения доступны
-    expect((storage).config.timeout).toBe(500)
+    // Returned through a proxy, but values remain accessible
+    expect(storage.config.timeout).toBe(500)
   })
 })

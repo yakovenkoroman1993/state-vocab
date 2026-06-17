@@ -7,7 +7,7 @@ const PageStateVocabProvider = pageServerStorage.StateVocabProvider
 export default async function Home() {
   return (
     <div style={{ padding: 32, fontFamily: "monospace" }}>
-      <Link href="/">TO HOME</Link>
+      <Link href="/settings">TO SETTINGS</Link>
       <hr />
       <PageStateVocabProvider
         value={{

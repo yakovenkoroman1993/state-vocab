@@ -117,7 +117,7 @@ npm install @yakocloud/state-vocab react react-dom
 
 ## Quick Start
 
-Define your storage tree once (`setupStorage`/`defineState`), call `clientify` to attach React hooks. If you use react server components (RSC) wrap your app with `StateVocabProvider` at the root and call `serverify` to attach RSC-methods. Use state anywhere in the tree
+Define your storage tree once (`setupStorage`/`defineState`), call `clientify` to attach React hooks. If you use React Server Components (RSC), wrap the relevant subtree with `StateVocabProvider` and call `serverify` to attach server-side `.getState()` methods. Use state anywhere in the tree.
 
 Library SSR-requirements:
 - `Per-request store`: A Next.js server can handle multiple requests simultaneously. This means that the store should be created per request and should not be shared across requests.
@@ -366,28 +366,14 @@ export const storage = setupStorage({
 })
 ```
 
-**2. Create a client context, then create server and client storage handles:**
-
-Each storage tree needs its own React context so that multiple independent providers can coexist on the same page without their state bleeding into each other.
-
-```ts
-// storage.context.client.ts  ("use client")
-"use client"
-
-import { createContext } from 'react'
-
-export const StorageClientContext = createContext({})
-```
+**2. Create server and client storage handles:**
 
 ```ts
 // storage.server.ts
 import { storage } from '@/storage'
 import { serverify } from '@yakocloud/state-vocab/server'
-import { StorageClientContext } from '@/storage.context.client'
 
-export const serverStorage = serverify(storage, {
-  clientContext: StorageClientContext,
-})
+export const serverStorage = serverify(storage)
 ```
 
 ```ts
@@ -396,11 +382,8 @@ export const serverStorage = serverify(storage, {
 
 import { storage } from '@/storage'
 import { clientify } from '@yakocloud/state-vocab/client'
-import { StorageClientContext } from '@/storage.context.client'
 
-export const clientStorage = clientify(storage, {
-  clientContext: StorageClientContext,
-})
+export const clientStorage = clientify(storage)
 ```
 
 **3. Seed initial state in the server component and read it in Server and Client children:**
@@ -412,10 +395,6 @@ import { serverStorage } from '@/storage.server'
 const { StateVocabProvider } = serverStorage
 
 export default async function Page() {
-  // Call start() before rendering the provider — registers the store for this
-  // request so child components can await getState() concurrently
-  serverStorage.start()
-
   // Fetch data from DB / API
   const user = await db.getUser()
 
@@ -437,8 +416,8 @@ export default async function Page() {
 import { serverStorage } from '@/storage.server'
 
 export default async function UserInfo() {
-  const name = await serverStorage.user.name.getState()
-  const role = await serverStorage.user.role.getState()
+  const name = serverStorage.user.name.getState()
+  const role = serverStorage.user.role.getState()
 
   return <p>{name} — {role}</p>
 }
@@ -460,41 +439,67 @@ export default function UserInfoClient() {
 
 #### Multiple independent storage trees
 
-Because each `serverify`/`clientify` pair is bound to its own context, you can have multiple independent providers active at the same time — for example, a layout-level store and a page-level store — without them interfering with each other:
+Because each `serverify`/`clientify` pair is bound to its own React context, you can have multiple independent providers active at the same time — for example, a layout-level store and a page-level store — without them interfering with each other. Pass a `clientContext` to link the server and client sides of each tree:
 
 ```ts
-// layout.context.client.ts ("use client")
-export const LayoutClientContext = createContext({})
-
-// page.context.client.ts ("use client")
-export const PageClientContext = createContext({})
-
 // layout.storage.server.ts
-export const layoutServerStorage = serverify(layoutStorage, { 
-  clientContext: LayoutClientContext 
-})
+import { createContext } from 'react'
+export const LayoutClientContext = createContext({})
+export const layoutServerStorage = serverify(layoutStorage, { clientContext: LayoutClientContext })
 
 // layout.storage.client.ts ("use client")
-export const layoutClientStorage = clientify(layoutStorage, { 
-  clientContext: LayoutClientContext 
-})
+"use client"
+export const layoutClientStorage = clientify(layoutStorage, { clientContext: LayoutClientContext })
 
 // page.storage.server.ts
-export const pageServerStorage = serverify(pageStorage, { 
-  clientContext: PageClientContext 
-})
+import { createContext } from 'react'
+export const PageClientContext = createContext({})
+export const pageServerStorage = serverify(pageStorage, { clientContext: PageClientContext })
 
 // page.storage.client.ts ("use client")
-export const pageClientStorage = clientify(pageStorage, { 
-  clientContext: PageClientContext 
-})
+"use client"
+export const pageClientStorage = clientify(pageStorage, { clientContext: PageClientContext })
 ```
 
 Each `StateVocabProvider` wraps its own subtree; a component that calls `pageClientStorage.user.name.useState()` reads only from the nearest `pageServerStorage.StateVocabProvider`, not from the layout provider.
 
+#### Next.js App Router: layout and page are isolated contexts
+
+In Next.js App Router, **layouts do not re-render during client-side navigation between pages**. Layout and page run as independent React render passes — the layout renders once on entry and stays mounted; the page renders fresh on every navigation.
+
+Because `React.cache()` (which backs the per-request server store) is scoped to a single render pass, layout and page never share the same cache scope:
+
+- A page server component **cannot** call `layoutServerStorage.someField.getState()` — the layout's `StateVocabProvider` ran in a separate pass, so its vocab is not in the page's cache scope.
+- A layout server component **cannot** call `pageServerStorage.someField.getState()` for the same reason.
+- **Each storage tree must be both seeded and consumed within the same route segment.**
+
+```tsx
+// ✅ Correct — layout seeds and reads from its own storage
+// app/(dashboard)/layout.tsx
+const LayoutProvider = layoutServerStorage.StateVocabProvider
+export default async function Layout({ children }) {
+  return (
+    <LayoutProvider value={{ session: { id: 123 } }}>
+      <LayoutHeader />  {/* ← can call layoutServerStorage.session.getState() */}
+      {children}
+    </LayoutProvider>
+  )
+}
+
+// ❌ Wrong — page cannot reach layout's storage
+// app/(dashboard)/page.tsx
+export default async function Page() {
+  const session = layoutServerStorage.session.getState() // throws — not in layout's render pass
+}
+```
+
+If a page needs data that the layout already fetches (e.g., the current user session), fetch it independently in the page, pass it via URL params, or use a separate mechanism — do not attempt to share it through other state-vocab server storage across route segments.
+
+This constraint is **server-only**. On the client, there is no such limitation — client components can freely call `.useState()` from any storage (`layoutClientStorage`, `pageClientStorage`, or any other) regardless of which route segment they live in.
+
 #### `serverify(storage)`
 
-Converts a storage tree into its server-side counterpart. Each leaf gains an async `.getState()` method that resolves once the nearest `StateVocabProvider` renders and provides its value. Each namespace node (including the root) gains a `.seed()` method that returns the input wrapped under its full ancestor path. The result also exposes `StateVocabProvider` and `start()` — call `start()` at the top of the component that renders `StateVocabProvider` so concurrent server children can await the value without timing out.
+Converts a storage tree into its server-side counterpart. Each leaf gains a synchronous `.getState()` method that reads the value injected by the nearest `StateVocabProvider`. Each namespace node (including the root) gains a `.seed()` method that returns the input wrapped under its full ancestor path. The result also exposes `StateVocabProvider`.
 
 **`.seed()` syntax:**
 
@@ -512,7 +517,7 @@ serverStorage.person.address.seed({ city: 'NY' })
 // → { person: { address: { city: 'NY' } } }
 ```
 
-**`node.getState()`** asynchronously reads the value for that leaf once the surrounding `StateVocabProvider` has rendered. Returns `Promise<V>` — always `await` it. Throws (rejects) if called outside a provider scope or if `serverTimeout` expires.
+**`node.getState()`** synchronously reads the value for that leaf. Must be called within a React render context (i.e., inside a component that is a descendant of `StateVocabProvider`). Throws if called outside a provider scope or outside a React render context.
 
 #### `clientify(storage)`
 
@@ -749,36 +754,31 @@ import { StateVocabClientProvider } from '@yakocloud/state-vocab/client'
 </StateVocabClientProvider>
 ```
 
-### `serverify<T>(storage: T, options)`
+### `serverify<T>(storage: T, options?)`
 
 Converts a storage tree to its server-side counterpart. Available from `@yakocloud/state-vocab/server`.
 
 | Option | Type | Description |
 |---|---|---|
-| `clientContext` | `Context<object>` | **Required.** A React context created with `createContext({})` in a `"use client"` file. Must match the `clientContext` passed to `clientify` for the same storage tree. |
-| `serverTimeout` | `number \| undefined` | Timeout in ms for each `getState()` call. Defaults to `1000`. If the `StateVocabProvider` has not rendered within this window, `getState()` rejects with a descriptive error. |
+| `clientContext` | `Context<object> \| undefined` | A React context created with `createContext({})`. Pass the same context to `clientify` when multiple independent storage trees coexist on the same page. Omit for single-tree setups. |
 
 The result exposes:
 
-- **`start()`** — call once at the top of the component that renders `StateVocabProvider`, before any `await` expressions. It registers a pending promise in the per-request store (`React.cache()` scope), which lets concurrent server components `await getState()` without hanging. Must be called within a React render context.
-- **`StateVocabProvider`** — synchronous server component that accepts a `value` prop and resolves the pending promise registered by `start()`.
-- **`node.getState()`** — async; reads the value for that leaf once the nearest `StateVocabProvider` has rendered. Throws if called outside a provider scope or if the timeout expires.
+- **`StateVocabProvider`** — server component that accepts a `value` prop and seeds the per-request store via `React.cache()`.
+- **`node.getState()`** — synchronously reads the value for that leaf. Must be called within a React render context (descendant of `StateVocabProvider`). Throws if called outside a provider scope or outside a render context.
 - **`node.seed(input)`** — wraps `input` under the node's ancestor path, returning a plain object ready to pass as the `value` prop.
 
 ```ts
 import { serverify } from '@yakocloud/state-vocab/server'
-import { MyClientContext } from '@/storage.context.client'
 
-const serverStorage = serverify(storage, {
-  clientContext: MyClientContext,
-  serverTimeout: 2000, // optional, default 1000
-})
+const serverStorage = serverify(storage)
+// or, for multiple independent trees:
+const serverStorage = serverify(storage, { clientContext: MyClientContext })
 
 const { StateVocabProvider } = serverStorage
 
 // In a Server Component:
-serverStorage.start()                                  // register before rendering
-await serverStorage.user.name.getState()               // reads "user.name" (async)
+serverStorage.user.name.getState()                     // reads "user.name" (sync)
 serverStorage.user.seed({ name: 'Alice' })             // → { user: { name: 'Alice' } }
 serverStorage.person.address.seed({ city: 'NY' })      // → { person: { address: { city: 'NY' } } }
 serverStorage.seed({ user: { name: 'Alice' } })        // → { user: { name: 'Alice' } } (identity)
@@ -790,7 +790,7 @@ Converts a storage tree to its client-side counterpart. Available from `@yakoclo
 
 | Option | Type | Description |
 |---|---|---|
-| `clientContext` | `Context<object> \| undefined` | The React context created with `createContext({})` for this storage tree. Must match the `clientContext` passed to `serverify`. Required when using RSC; omit for SPA-only setups. |
+| `clientContext` | `Context<object> \| undefined` | The React context used to isolate this storage tree. Must match the `clientContext` passed to `serverify` for the same tree. Omit for single-tree setups. |
 
 Each leaf gains `.useState()` and `.useInitialState()`. The tree structure mirrors the original.
 

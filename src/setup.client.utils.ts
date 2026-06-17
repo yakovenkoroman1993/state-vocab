@@ -1,7 +1,8 @@
+import type { ClientSlot } from "./setup.client.types";
+import type { Deserialize, Serialize } from "./state.types";
 import { type DependencyList, useMemo } from "react";
 import { debounce, isValueDefined } from "./utils";
 import VocabStore from "./store";
-import type { Deserialize, Serialize } from "./state.types";
 
 export function useDebounce<T extends (...args: never[]) => unknown>(
   effect: T,
@@ -41,4 +42,12 @@ export const sync = <V>(options: {
   } else { 
     vocabStore.set(statePath, deserialize(serialized))
   }
+}
+
+export function isClientSlot(value: unknown): value is ClientSlot<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "clientSlot" in value
+  )
 }

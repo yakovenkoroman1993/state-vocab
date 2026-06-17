@@ -1,8 +1,8 @@
 "use client"
 
-import { layoutStorage } from "@/context/layout.storage"
+import { LayoutClientContext } from "@/app/_storage/layout.context.client"
+import { layoutStorage } from "@/app/_storage/layout.storage"
 import { clientify } from "@yakocloud/state-vocab/client"
-import { LayoutClientContext } from "@/context/layout.context.client";
 
 export const layoutClientStorage = clientify(layoutStorage, {
   clientContext: LayoutClientContext

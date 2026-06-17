@@ -1,7 +1,8 @@
 "use client"
 
-import { layoutClientStorage } from "@/context/layout.storage.client"
-import { pageClientStorage } from "@/context/page.storage.client"
+import { layoutClientStorage } from "@/app/_storage/layout.storage.client"
+import { pageClientStorage } from "@/app/_storage/page.storage.client"
+
 
 export default function ClientUserInfo() {
   const [name] = pageClientStorage.user.name.useState()

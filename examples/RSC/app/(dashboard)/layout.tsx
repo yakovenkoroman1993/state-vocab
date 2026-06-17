@@ -1,11 +1,9 @@
+import { layoutServerStorage } from "@/app/_storage/layout.storage.server";
 import { PropsWithChildren } from "react";
-import { layoutServerStorage } from "@/context/layout.storage.server";
 
 const LayoutStateVocabProvider = layoutServerStorage.StateVocabProvider
 
 export default async function RootLayout({ children }: PropsWithChildren) {
-  layoutServerStorage.start()
-  
   return (
     <LayoutStateVocabProvider
       value={{
